@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { EmptyState } from "@/components/empty-state";
 import { LoadingScreen } from "@/components/loading-screen";
 import { PostCard } from "@/components/post-card";
@@ -17,38 +17,44 @@ import { useQuery } from "@/lib/convex";
 import { colors } from "@/lib/theme";
 
 export default function HomeTabScreen() {
-  const [selectedCategoryId, setSelectedCategoryId] = useState<Id<"categories"> | null>(
-    null,
-  );
+  const params = useLocalSearchParams<{ category?: string | string[] }>();
+  const selectedCategorySlug =
+    typeof params.category === "string" ? params.category : null;
   const categories = useQuery(api.feed.listCategories, {});
-  const posts = useQuery(api.feed.listHome, {
-    categoryId: selectedCategoryId,
-  });
+  const selectedCategory =
+    categories?.find((category) => category.slug === selectedCategorySlug) ??
+    null;
+  const selectedCategoryId = selectedCategory?._id ?? null;
+  const posts = useQuery(
+    api.feed.listHome,
+    categories === undefined ? "skip" : { categoryId: selectedCategoryId },
+  );
+  const previousPosts = useRef<typeof posts>(undefined);
 
-  if (categories === undefined || posts === undefined) {
+  if (posts !== undefined) {
+    previousPosts.current = posts;
+  }
+
+  useEffect(() => {
+    if (categories !== undefined && selectedCategorySlug && !selectedCategory) {
+      router.setParams({ category: undefined });
+    }
+  }, [categories, selectedCategory, selectedCategorySlug]);
+
+  function selectCategory(slug: string | null) {
+    router.setParams({ category: slug ?? undefined });
+  }
+
+  const visiblePosts = posts ?? previousPosts.current;
+  const isFiltering =
+    posts === undefined && previousPosts.current !== undefined;
+
+  if (categories === undefined || visiblePosts === undefined) {
     return <LoadingScreen message="Loading the community feed..." />;
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.hero}>
-        <Text style={styles.title}>Share learnings and keep the async rhythm alive.</Text>
-        <Text style={styles.copy}>
-          The feed is chronological on purpose, so everyone can catch up thread
-          by thread without gaming attention.
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push("/(protected)/(drawer)/(tabs)/map")}
-          style={styles.mapShortcut}
-        >
-          <Text style={styles.mapShortcutLabel}>Jump to the builder map</Text>
-          <Text style={styles.mapShortcutCopy}>
-            See who from the House is based in your city.
-          </Text>
-        </Pressable>
-      </View>
-
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -56,16 +62,17 @@ export default function HomeTabScreen() {
       >
         <Pressable
           accessibilityRole="button"
-          onPress={() => setSelectedCategoryId(null)}
+          accessibilityState={{ selected: selectedCategorySlug === null }}
+          onPress={() => selectCategory(null)}
           style={[
             styles.chip,
-            selectedCategoryId === null ? styles.chipActive : null,
+            selectedCategorySlug === null ? styles.chipActive : null,
           ]}
         >
           <Text
             style={[
               styles.chipLabel,
-              selectedCategoryId === null ? styles.chipLabelActive : null,
+              selectedCategorySlug === null ? styles.chipLabelActive : null,
             ]}
           >
             All
@@ -75,20 +82,25 @@ export default function HomeTabScreen() {
           <Pressable
             key={category._id}
             accessibilityRole="button"
+            accessibilityState={{
+              selected: selectedCategorySlug === category.slug,
+            }}
             onPress={() =>
-              setSelectedCategoryId((current) =>
-                current === category._id ? null : category._id,
+              selectCategory(
+                selectedCategorySlug === category.slug ? null : category.slug,
               )
             }
             style={[
               styles.chip,
-              selectedCategoryId === category._id ? styles.chipActive : null,
+              selectedCategorySlug === category.slug ? styles.chipActive : null,
             ]}
           >
             <Text
               style={[
                 styles.chipLabel,
-                selectedCategoryId === category._id ? styles.chipLabelActive : null,
+                selectedCategorySlug === category.slug
+                  ? styles.chipLabelActive
+                  : null,
               ]}
             >
               {category.name}
@@ -98,8 +110,15 @@ export default function HomeTabScreen() {
       </ScrollView>
 
       <View style={styles.feed}>
-        {posts.length > 0 ? (
-          posts.map((post) => (
+        {isFiltering ? (
+          <View style={styles.filteringStatus}>
+            <ActivityIndicator color={colors.accent} />
+            <Text style={styles.filteringLabel}>Updating feed</Text>
+          </View>
+        ) : null}
+
+        {visiblePosts.length > 0 ? (
+          visiblePosts.map((post) => (
             <PostCard
               key={post._id}
               post={post}
@@ -114,7 +133,11 @@ export default function HomeTabScreen() {
         ) : (
           <EmptyState
             title="No posts yet"
-            description="Be the first builder to start a thread in this category."
+            description={
+              selectedCategory
+                ? "Be the first builder to start a thread in this category."
+                : "Be the first builder to start a thread in the community feed."
+            }
           />
         )}
       </View>
@@ -189,5 +212,18 @@ const styles = StyleSheet.create({
   },
   feed: {
     gap: 12,
+  },
+  filteringStatus: {
+    alignItems: "center",
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingBottom: 12,
+  },
+  filteringLabel: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

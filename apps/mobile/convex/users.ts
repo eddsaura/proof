@@ -15,14 +15,14 @@ async function geocodeCity(cityName: string) {
   }
 
   const payload = (await response.json()) as {
-    results?: Array<{
+    results?: {
       latitude: number;
       longitude: number;
       country_code?: string;
       name?: string;
       admin1?: string;
       country?: string;
-    }>;
+    }[];
   };
 
   const result = payload.results?.[0];
@@ -118,6 +118,37 @@ export const getByUsername = query({
       user,
       recentPosts: postSummaries,
     };
+  },
+});
+
+export const searchMentionCandidates = query({
+  args: {
+    query: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireActiveUser(ctx);
+
+    const search = args.query.trim().toLowerCase().replace(/^@/, "").slice(0, 39);
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_status_username", (q) => {
+        const activeUsers = q.eq("status", "active");
+
+        if (search.length === 0) {
+          return activeUsers;
+        }
+
+        return activeUsers.gte("username", search).lt("username", `${search}\uffff`);
+      })
+      .take(8);
+
+    return users.map((user) => ({
+      _id: user._id,
+      username: user.username,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl ?? null,
+      cityName: user.cityName ?? null,
+    }));
   },
 });
 

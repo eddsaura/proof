@@ -29,7 +29,8 @@ export default defineSchema({
     .index("phone", ["phone"])
     .index("by_username", ["username"])
     .index("by_authUserId", ["authUserId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_status_username", ["status", "username"]),
   invites: defineTable({
     githubUsername: v.string(),
     role: v.union(v.literal("admin"), v.literal("member")),

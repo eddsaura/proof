@@ -3,6 +3,7 @@ import { Drawer } from "expo-router/drawer";
 import { AppDrawerContent } from "@/components/app-drawer-content";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "@/lib/convex";
+import { colors } from "@/lib/theme";
 
 export default function DrawerLayout() {
   const viewerState = useQuery(api.users.viewerState, {});
@@ -14,7 +15,24 @@ export default function DrawerLayout() {
         <AppDrawerContent {...props} isAdmin={Boolean(isAdmin)} />
       )}
       screenOptions={{
+        drawerActiveBackgroundColor: colors.accentSoft,
+        drawerActiveTintColor: colors.accent,
+        drawerInactiveTintColor: colors.muted,
+        drawerStyle: {
+          backgroundColor: colors.background,
+        },
         drawerType: "slide",
+        headerStyle: {
+          backgroundColor: colors.background,
+        },
+        headerTintColor: colors.ink,
+        headerTitleStyle: {
+          fontSize: 18,
+          fontWeight: "700",
+        },
+        sceneContainerStyle: {
+          backgroundColor: colors.background,
+        },
       }}
     >
       <Drawer.Screen

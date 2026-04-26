@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
@@ -14,6 +13,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { CommentThread } from "@/components/comment-thread";
 import { EmptyState } from "@/components/empty-state";
 import { LoadingScreen } from "@/components/loading-screen";
+import { MentionInput } from "@/components/mention-input";
 import { MentionText } from "@/components/mention-text";
 import { PrimaryButton } from "@/components/primary-button";
 import { useMutation, useQuery } from "@/lib/convex";
@@ -92,12 +92,12 @@ export default function PostDetailScreen() {
             main thread.
           </Text>
         ) : null}
-        <TextInput
+        <MentionInput
           multiline
           onChangeText={setBody}
           placeholder={placeholder}
           placeholderTextColor={colors.muted}
-          style={styles.input}
+          inputStyle={styles.input}
           textAlignVertical="top"
           value={body}
         />

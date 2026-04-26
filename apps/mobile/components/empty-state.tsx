@@ -19,10 +19,7 @@ export function EmptyState({
 
 const styles = StyleSheet.create({
   container: {
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 24,
+    paddingVertical: 12,
     gap: 8,
   },
   title: {

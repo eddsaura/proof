@@ -1,5 +1,11 @@
 import { DrawerToggleButton } from "@react-navigation/drawer";
 import { Tabs } from "expo-router";
+import {
+  HouseIcon,
+  MapPinLineIcon,
+  PlusCircleIcon,
+  TrayArrowDownIcon,
+} from "phosphor-react-native";
 
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "@/lib/convex";
@@ -33,21 +39,9 @@ export default function TabsLayout() {
         options={{
           title: "Home",
           tabBarLabel: "Home",
-        }}
-      />
-      <Tabs.Screen
-        name="create"
-        options={{
-          title: "Create",
-          tabBarLabel: "Create",
-        }}
-      />
-      <Tabs.Screen
-        name="inbox"
-        options={{
-          title: "Inbox",
-          tabBarLabel: "Inbox",
-          tabBarBadge: unreadCount && unreadCount > 0 ? unreadCount : undefined,
+          tabBarIcon: ({ color }) => (
+            <HouseIcon color={color} size={24} weight="fill" />
+          ),
         }}
       />
       <Tabs.Screen
@@ -55,6 +49,30 @@ export default function TabsLayout() {
         options={{
           title: "Map",
           tabBarLabel: "Map",
+          tabBarIcon: ({ color }) => (
+            <MapPinLineIcon color={color} size={24} weight="fill" />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="create"
+        options={{
+          title: "Create",
+          tabBarLabel: "Create",
+          tabBarIcon: ({ color }) => (
+            <PlusCircleIcon color={color} size={24} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="inbox"
+        options={{
+          title: "Inbox",
+          tabBarLabel: "Inbox",
+          tabBarIcon: ({ color }) => (
+            <TrayArrowDownIcon color={color} size={24} weight="fill" />
+          ),
+          tabBarBadge: unreadCount && unreadCount > 0 ? unreadCount : undefined,
         }}
       />
     </Tabs>

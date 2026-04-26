@@ -1,6 +1,5 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import {
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,25 +10,11 @@ import { router } from "expo-router";
 
 import { api } from "@/convex/_generated/api";
 import { EmptyState } from "@/components/empty-state";
+import { BuilderMap } from "@/components/builder-map";
 import { MentionText } from "@/components/mention-text";
 import { PrimaryButton } from "@/components/primary-button";
 import { useQuery } from "@/lib/convex";
 import { colors } from "@/lib/theme";
-
-const nativeMapsModule =
-  Platform.OS === "web"
-    ? null
-    : (() => {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          return require("react-native-maps") as typeof import("react-native-maps");
-        } catch {
-          return null;
-        }
-      })();
-
-const NativeMapView = nativeMapsModule?.default;
-const NativeMarker = nativeMapsModule?.Marker;
 
 export default function MapTabScreen() {
   const [search, setSearch] = useState("");
@@ -84,32 +69,10 @@ export default function MapTabScreen() {
         />
       </View>
 
-      {Platform.OS === "web" || !NativeMapView || !NativeMarker ? (
-        <View style={styles.webFallback}>
-          <Text style={styles.webFallbackTitle}>Map preview is unavailable in this build.</Text>
-          <Text style={styles.copy}>
-            The searchable member list below still works, and the native map will
-            appear once the simulator is running a binary with `react-native-maps`
-            available.
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.mapShell}>
-          <NativeMapView style={styles.map} initialRegion={initialRegion}>
-            {mappableMembers.map((member) => (
-              <NativeMarker
-                key={member._id}
-                coordinate={{
-                  latitude: member.cityLat,
-                  longitude: member.cityLng,
-                }}
-                title={member.displayName}
-                description={member.cityName}
-              />
-            ))}
-          </NativeMapView>
-        </View>
-      )}
+      <BuilderMap
+        initialRegion={initialRegion}
+        members={mappableMembers}
+      />
 
       <View style={styles.list}>
         {members?.length ? (
@@ -178,31 +141,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-  },
-  webFallback: {
-    borderRadius: 10,
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderWidth: 1,
-    padding: 18,
-    gap: 8,
-  },
-  webFallbackTitle: {
-    color: colors.ink,
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  mapShell: {
-    overflow: "hidden",
-    borderRadius: 10,
-    backgroundColor: colors.paper,
-    borderColor: colors.border,
-    borderWidth: 1,
-    height: 320,
-  },
-  map: {
-    width: "100%",
-    height: "100%",
   },
   list: {
     gap: 12,

@@ -1,16 +1,16 @@
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { StatusBar } from "expo-status-bar";
 import { ConvexReactClient } from "convex/react";
+import { useCallback, useEffect, useRef } from "react";
 import { Platform, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import * as WebBrowser from "expo-web-browser";
 
 import { colors } from "@/lib/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -24,9 +24,78 @@ const secureStorage = {
   removeItem: SecureStore.deleteItemAsync,
 };
 
+const navigationTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: colors.accent,
+    background: colors.background,
+    card: colors.background,
+    text: colors.ink,
+    border: colors.border,
+    notification: colors.danger,
+  },
+};
+
+type PendingReplace = {
+  relativeUrl: string;
+  resolve: () => void;
+};
+
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const router = useRouter();
+  const isRootMounted = useRef(false);
+  const pendingReplace = useRef<PendingReplace | null>(null);
+
+  const runReplace = useCallback(
+    (relativeUrl: string, resolve: () => void) => {
+      const navigate = () => {
+        router.replace(relativeUrl as never);
+        resolve();
+      };
+
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(navigate);
+        return;
+      }
+
+      setTimeout(navigate, 0);
+    },
+    [router],
+  );
+
+  const flushPendingReplace = useCallback(() => {
+    const pending = pendingReplace.current;
+
+    if (!pending) {
+      return;
+    }
+
+    pendingReplace.current = null;
+    runReplace(pending.relativeUrl, pending.resolve);
+  }, [runReplace]);
+
+  useEffect(() => {
+    isRootMounted.current = true;
+    flushPendingReplace();
+
+    return () => {
+      isRootMounted.current = false;
+    };
+  }, [flushPendingReplace]);
+
+  const replaceURL = useCallback(
+    (relativeUrl: string) =>
+      new Promise<void>((resolve) => {
+        if (!isRootMounted.current) {
+          pendingReplace.current = { relativeUrl, resolve };
+          return;
+        }
+
+        runReplace(relativeUrl, resolve);
+      }),
+    [runReplace],
+  );
 
   if (!convex) {
     return (
@@ -76,11 +145,9 @@ export default function RootLayout() {
             ? secureStorage
             : undefined
         }
-        replaceURL={(relativeUrl) => router.replace(relativeUrl as never)}
+        replaceURL={replaceURL}
       >
-        <ThemeProvider
-          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-        >
+        <ThemeProvider value={navigationTheme}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="(public)" />
