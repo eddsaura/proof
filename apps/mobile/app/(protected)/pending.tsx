@@ -19,15 +19,26 @@ export default function PendingScreen() {
     return <Redirect href="/(protected)/onboarding" />;
   }
 
+  const wasDeclined = viewerState?.kind === "declined";
+
   return (
     <View style={styles.container}>
       <View style={styles.panel}>
-        <Text style={styles.title}>You are signed in, but not invited yet.</Text>
+        <Text style={styles.title}>
+          {wasDeclined
+            ? "Your registration was declined."
+            : "You are signed in, but not invited yet."}
+        </Text>
         <Text style={styles.copy}>
-          Ask a SOTI House admin to add{" "}
-          <Text style={styles.highlight}>{viewerState?.user.username}</Text> to
-          the private builder network. As soon as the invite exists, this screen
-          will turn into onboarding automatically.
+          {wasDeclined
+            ? "A SOTI House admin declined this registration. Sign out if you need to use a different account."
+            : "Ask a SOTI House admin to accept "}
+          {!wasDeclined ? (
+            <>
+              <Text style={styles.highlight}>{viewerState?.user.username}</Text>
+              {" into the private builder network. As soon as they accept it, this screen will turn into onboarding automatically."}
+            </>
+          ) : null}
         </Text>
         <PrimaryButton label="Sign out" onPress={() => void signOut()} />
       </View>

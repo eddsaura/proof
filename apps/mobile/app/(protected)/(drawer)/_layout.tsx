@@ -10,7 +10,9 @@ import { colors, layout } from "@/lib/theme";
 export default function DrawerLayout() {
   const dimensions = useWindowDimensions();
   const viewerState = useQuery(api.users.viewerState, {});
-  const isAdmin = viewerState?.kind === "active" && viewerState.user.role === "admin";
+  const isAdmin =
+    viewerState?.kind === "active" &&
+    (viewerState.user.role === "admin" || viewerState.user.role === "super-admin");
   const isDesktopLayout =
     Platform.OS === "web" && dimensions.width >= layout.desktopBreakpoint;
 

@@ -10,8 +10,19 @@ import {
   slugify,
   slugifyCategory,
 } from "./lib/community";
-import { requireAdmin } from "./lib/auth";
+import {
+  getOptionalAdmin,
+  isAdminRole,
+  requireAdmin,
+  resolveManagedRole,
+} from "./lib/auth";
 import { normalizeCalendarDateRange } from "./lib/dates";
+
+const roleValidator = v.union(
+  v.literal("super-admin"),
+  v.literal("admin"),
+  v.literal("member"),
+);
 
 async function ensureUniqueCategorySlug(ctx: any, slug: string, categoryId?: string) {
   const existing = await ctx.db
@@ -53,6 +64,19 @@ function normalizeBadgeTypes(badgeTypes: ("core")[] | undefined) {
   return [...new Set(badgeTypes ?? [])];
 }
 
+async function ensureSauraSuperAdmin(ctx: any) {
+  const saura = await ctx.db
+    .query("users")
+    .withIndex("by_username", (q: any) => q.eq("username", "saura"))
+    .unique();
+
+  if (saura && saura.role !== "super-admin") {
+    await ctx.db.patch(saura._id, {
+      role: "super-admin",
+    });
+  }
+}
+
 async function resolveBatches(ctx: any, batchIds: string[] | undefined) {
   const batches = await Promise.all((batchIds ?? []).map((batchId) => ctx.db.get(batchId)));
 
@@ -87,7 +111,10 @@ export const bootstrapCommunity = mutation({
 
     await ctx.db.insert("invites", {
       githubUsername: normalizeUsername(args.githubUsername),
-      role: "admin",
+      role:
+        normalizeUsername(args.githubUsername) === "saura"
+          ? "super-admin"
+          : "admin",
       createdAt: Date.now(),
     });
 
@@ -102,6 +129,7 @@ export const ensureDefaultBatchesForAdmin = mutation({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
+    await ensureSauraSuperAdmin(ctx);
     await ensureDefaultBatches(ctx);
     return { ok: true };
   },
@@ -110,7 +138,11 @@ export const ensureDefaultBatchesForAdmin = mutation({
 export const listInvites = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    const admin = await getOptionalAdmin(ctx);
+
+    if (admin === null) {
+      return [];
+    }
 
     const invites = await ctx.db.query("invites").order("desc").collect();
 
@@ -126,7 +158,11 @@ export const listInvites = query({
 export const listMembersForAdmin = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    const admin = await getOptionalAdmin(ctx);
+
+    if (admin === null) {
+      return [];
+    }
 
     const users = await ctx.db
       .query("users")
@@ -148,32 +184,75 @@ export const listMembersForAdmin = query({
   },
 });
 
+export const listPendingRegistrations = query({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await getOptionalAdmin(ctx);
+
+    if (admin === null) {
+      return [];
+    }
+
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_status_username", (q) => q.eq("status", "invited"))
+      .collect();
+
+    const pendingUsers = await Promise.all(
+      users.map(async (user) => {
+        const invite = await findActiveInviteByUsername(ctx, user.username);
+
+        if (invite !== null) {
+          return null;
+        }
+
+        return {
+          _id: user._id,
+          username: user.username,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+          email: user.email,
+          role: user.role,
+          createdAt: user.createdAt,
+        };
+      }),
+    );
+
+    return pendingUsers.filter((user): user is NonNullable<typeof user> => user !== null);
+  },
+});
+
 export const createInvite = mutation({
   args: {
     githubUsername: v.string(),
-    role: v.union(v.literal("admin"), v.literal("member")),
+    role: roleValidator,
     batchIds: v.optional(v.array(v.id("batches"))),
   },
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const githubUsername = normalizeUsername(args.githubUsername);
+    const role = resolveManagedRole(githubUsername, args.role);
     const existingInvite = await findActiveInviteByUsername(ctx, githubUsername);
     const batchIds = await assertValidBatchIds(ctx, args.batchIds ?? []);
 
     if (existingInvite) {
       await ctx.db.patch(existingInvite._id, {
-        role: args.role,
+        role,
         batchIds,
         revokedAt: undefined,
       });
     } else {
       await ctx.db.insert("invites", {
         githubUsername,
-        role: args.role,
+        role,
         batchIds,
         invitedBy: admin._id,
         createdAt: Date.now(),
       });
+    }
+
+    if (isAdminRole(role)) {
+      await ensureDefaultCategories(ctx);
     }
 
     const existingUser = await ctx.db
@@ -183,10 +262,98 @@ export const createInvite = mutation({
 
     if (existingUser) {
       await ctx.db.patch(existingUser._id, {
-        role: args.role,
+        role,
         batchIds,
+        status: existingUser.status === "declined" ? "invited" : existingUser.status,
       });
     }
+  },
+});
+
+export const acceptPendingRegistration = mutation({
+  args: {
+    userId: v.id("users"),
+    role: roleValidator,
+    batchIds: v.optional(v.array(v.id("batches"))),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const user = await ctx.db.get(args.userId);
+
+    if (user === null) {
+      throw new Error("That registration no longer exists.");
+    }
+
+    if (user.status === "active") {
+      throw new Error("That member is already active.");
+    }
+
+    const role = resolveManagedRole(user.username, args.role);
+    const batchIds = await assertValidBatchIds(ctx, args.batchIds ?? []);
+    const existingInvite = await findActiveInviteByUsername(ctx, user.username);
+
+    if (existingInvite) {
+      await ctx.db.patch(existingInvite._id, {
+        role,
+        batchIds,
+        revokedAt: undefined,
+      });
+    } else {
+      await ctx.db.insert("invites", {
+        githubUsername: user.username,
+        role,
+        batchIds,
+        invitedBy: admin._id,
+        createdAt: Date.now(),
+      });
+    }
+
+    await ctx.db.patch(args.userId, {
+      role,
+      batchIds,
+      status: "invited",
+    });
+
+    if (isAdminRole(role)) {
+      await ensureDefaultCategories(ctx);
+    }
+  },
+});
+
+export const declinePendingRegistration = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const user = await ctx.db.get(args.userId);
+
+    if (user === null) {
+      throw new Error("That registration no longer exists.");
+    }
+
+    if (user.username === "saura") {
+      throw new Error("saura cannot be declined.");
+    }
+
+    const invites = await ctx.db
+      .query("invites")
+      .withIndex("by_githubUsername", (q) => q.eq("githubUsername", user.username))
+      .collect();
+
+    await Promise.all(
+      invites
+        .filter((invite) => invite.revokedAt === undefined)
+        .map((invite) =>
+          ctx.db.patch(invite._id, {
+            revokedAt: Date.now(),
+          }),
+        ),
+    );
+
+    await ctx.db.patch(args.userId, {
+      status: "declined",
+    });
   },
 });
 
@@ -208,6 +375,7 @@ export const updateMemberBatches = mutation({
     userId: v.id("users"),
     batchIds: v.array(v.id("batches")),
     badgeTypes: v.optional(v.array(v.literal("core"))),
+    role: roleValidator,
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
@@ -220,18 +388,29 @@ export const updateMemberBatches = mutation({
 
     const batchIds = await assertValidBatchIds(ctx, args.batchIds);
     const badgeTypes = normalizeBadgeTypes(args.badgeTypes);
+    const role = resolveManagedRole(user.username, args.role);
 
     await ctx.db.patch(args.userId, {
       batchIds,
       badgeTypes,
+      role,
     });
+
+    if (isAdminRole(role)) {
+      await ensureDefaultCategories(ctx);
+    }
   },
 });
 
 export const listCategoriesForAdmin = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    const admin = await getOptionalAdmin(ctx);
+
+    if (admin === null) {
+      return [];
+    }
+
     return await ctx.db.query("categories").withIndex("by_sortOrder").collect();
   },
 });
@@ -239,7 +418,12 @@ export const listCategoriesForAdmin = query({
 export const listBatchesForAdmin = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    const admin = await getOptionalAdmin(ctx);
+
+    if (admin === null) {
+      return [];
+    }
+
     return await ctx.db.query("batches").withIndex("by_sortOrder").collect();
   },
 });

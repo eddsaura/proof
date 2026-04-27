@@ -24,9 +24,15 @@ import { useMutation, useQuery } from "@/lib/convex";
 import { colors, layout } from "@/lib/theme";
 
 type BadgeType = "core";
-type AdminTab = "invites" | "members" | "batches" | "categories";
+type UserRole = "super-admin" | "admin" | "member";
+type AdminTab = "pending" | "invites" | "members" | "batches" | "categories";
 
 const adminTabs: { key: AdminTab; label: string; description: string }[] = [
+  {
+    key: "pending",
+    label: "Pending",
+    description: "Accept or decline people who signed in and are waiting.",
+  },
   {
     key: "invites",
     label: "Invites",
@@ -49,18 +55,87 @@ const adminTabs: { key: AdminTab; label: string; description: string }[] = [
   },
 ];
 
+const roleOptions: { value: UserRole; label: string }[] = [
+  { value: "member", label: "Member" },
+  { value: "admin", label: "Admin" },
+  { value: "super-admin", label: "Super-admin" },
+];
+
+function isSauraUsername(username: string | undefined) {
+  return username?.trim().replace(/^@+/, "").toLowerCase() === "saura";
+}
+
+function formatRole(role: UserRole | string) {
+  if (role === "super-admin") {
+    return "super-admin";
+  }
+
+  return role;
+}
+
+function RoleSelect({
+  role,
+  username,
+  onChange,
+}: {
+  role: UserRole;
+  username?: string;
+  onChange: (role: UserRole) => void;
+}) {
+  return (
+    <View style={styles.roleSelect}>
+      {roleOptions.map((option) => {
+        const selected = role === option.value;
+        const disabled = option.value === "super-admin" && !isSauraUsername(username);
+
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="button"
+            accessibilityState={{ disabled, selected }}
+            disabled={disabled}
+            onPress={() => onChange(option.value)}
+            style={[
+              styles.roleOption,
+              selected ? styles.roleOptionSelected : null,
+              disabled ? styles.roleOptionDisabled : null,
+            ]}
+          >
+            <Text
+              style={[
+                styles.roleOptionLabel,
+                selected ? styles.roleOptionLabelSelected : null,
+                disabled ? styles.roleOptionLabelDisabled : null,
+              ]}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function AdminScreen() {
   const viewerState = useQuery(api.users.viewerState, {});
   const isAdmin =
-    viewerState?.kind === "active" && viewerState.user.role === "admin";
+    viewerState?.kind === "active" &&
+    (viewerState.user.role === "admin" || viewerState.user.role === "super-admin");
   const invites = useQuery(api.admin.listInvites, isAdmin ? {} : "skip");
   const members = useQuery(api.admin.listMembersForAdmin, isAdmin ? {} : "skip");
+  const pendingRegistrations = useQuery(
+    api.admin.listPendingRegistrations,
+    isAdmin ? {} : "skip",
+  );
   const categories = useQuery(
     api.admin.listCategoriesForAdmin,
     isAdmin ? {} : "skip",
   );
   const batches = useQuery(api.admin.listBatchesForAdmin, isAdmin ? {} : "skip");
   const ensureDefaultBatches = useMutation(api.admin.ensureDefaultBatchesForAdmin);
+  const acceptPendingRegistration = useMutation(api.admin.acceptPendingRegistration);
+  const declinePendingRegistration = useMutation(api.admin.declinePendingRegistration);
   const createInvite = useMutation(api.admin.createInvite);
   const revokeInvite = useMutation(api.admin.revokeInvite);
   const updateMemberBatches = useMutation(api.admin.updateMemberBatches);
@@ -68,9 +143,9 @@ export default function AdminScreen() {
   const updateBatch = useMutation(api.admin.updateBatch);
   const createCategory = useMutation(api.admin.createCategory);
   const updateCategory = useMutation(api.admin.updateCategory);
-  const [activeTab, setActiveTab] = useState<AdminTab>("invites");
+  const [activeTab, setActiveTab] = useState<AdminTab>("pending");
   const [githubUsername, setGithubUsername] = useState("");
-  const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
+  const [inviteRole, setInviteRole] = useState<UserRole>("member");
   const [selectedBatchIds, setSelectedBatchIds] = useState<Id<"batches">[]>([]);
   const [newBatchLabel, setNewBatchLabel] = useState("");
   const [newBatchHouseName, setNewBatchHouseName] = useState("");
@@ -86,6 +161,13 @@ export default function AdminScreen() {
   >({});
   const [editableMemberBadgeTypes, setEditableMemberBadgeTypes] = useState<
     Record<string, BadgeType[]>
+  >({});
+  const [editableMemberRoles, setEditableMemberRoles] = useState<
+    Record<string, UserRole>
+  >({});
+  const [pendingRoles, setPendingRoles] = useState<Record<string, UserRole>>({});
+  const [pendingBatchIds, setPendingBatchIds] = useState<
+    Record<string, Id<"batches">[]>
   >({});
   const [didRequestDefaultBatches, setDidRequestDefaultBatches] = useState(false);
 
@@ -120,13 +202,51 @@ export default function AdminScreen() {
           members.map((member) => [member._id, member.badgeTypes ?? []]),
         ),
       );
+      setEditableMemberRoles(
+        Object.fromEntries(
+          members.map((member) => [member._id, member.role as UserRole]),
+        ),
+      );
     }
   }, [members]);
+
+  useEffect(() => {
+    if (pendingRegistrations) {
+      setPendingRoles((current) =>
+        Object.fromEntries(
+          pendingRegistrations.map((registration) => [
+            registration._id,
+            current[String(registration._id)] ??
+              (registration.role === "super-admin" ||
+              registration.role === "admin" ||
+              registration.role === "member"
+                ? registration.role
+                : "member"),
+          ]),
+        ),
+      );
+      setPendingBatchIds((current) =>
+        Object.fromEntries(
+          pendingRegistrations.map((registration) => [
+            registration._id,
+            current[String(registration._id)] ?? [],
+          ]),
+        ),
+      );
+    }
+  }, [pendingRegistrations]);
+
+  useEffect(() => {
+    if (inviteRole === "super-admin" && !isSauraUsername(githubUsername)) {
+      setInviteRole("admin");
+    }
+  }, [githubUsername, inviteRole]);
 
   if (
     viewerState === undefined ||
     (isAdmin &&
       (invites === undefined ||
+        pendingRegistrations === undefined ||
         members === undefined ||
         categories === undefined ||
         batches === undefined))
@@ -146,6 +266,7 @@ export default function AdminScreen() {
   }
 
   const safeInvites = invites ?? [];
+  const safePendingRegistrations = pendingRegistrations ?? [];
   const safeMembers = members ?? [];
   const safeCategories = categories ?? [];
   const safeBatches = batches ?? [];
@@ -188,6 +309,34 @@ export default function AdminScreen() {
     });
   }
 
+  function setMemberRole(userId: Id<"users">, role: UserRole) {
+    setEditableMemberRoles((current) => ({
+      ...current,
+      [String(userId)]: role,
+    }));
+  }
+
+  function setPendingRole(userId: Id<"users">, role: UserRole) {
+    setPendingRoles((current) => ({
+      ...current,
+      [String(userId)]: role,
+    }));
+  }
+
+  function togglePendingBatch(userId: Id<"users">, batchId: Id<"batches">) {
+    setPendingBatchIds((current) => {
+      const key = String(userId);
+      const currentBatchIds = current[key] ?? [];
+
+      return {
+        ...current,
+        [key]: currentBatchIds.includes(batchId)
+          ? currentBatchIds.filter((id) => id !== batchId)
+          : [...currentBatchIds, batchId],
+      };
+    });
+  }
+
   function getBatchDates(startsOnValue: string, endsOnValue: string) {
     try {
       return normalizeCalendarDateRange({
@@ -216,6 +365,32 @@ export default function AdminScreen() {
     } catch (error) {
       Alert.alert(
         "Could not create invite",
+        error instanceof Error ? error.message : "Try again in a moment.",
+      );
+    }
+  }
+
+  async function handleAcceptPendingRegistration(userId: Id<"users">) {
+    try {
+      await acceptPendingRegistration({
+        userId,
+        role: pendingRoles[String(userId)] ?? "member",
+        batchIds: pendingBatchIds[String(userId)] ?? [],
+      });
+    } catch (error) {
+      Alert.alert(
+        "Could not accept registration",
+        error instanceof Error ? error.message : "Try again in a moment.",
+      );
+    }
+  }
+
+  async function handleDeclinePendingRegistration(userId: Id<"users">) {
+    try {
+      await declinePendingRegistration({ userId });
+    } catch (error) {
+      Alert.alert(
+        "Could not decline registration",
         error instanceof Error ? error.message : "Try again in a moment.",
       );
     }
@@ -256,6 +431,7 @@ export default function AdminScreen() {
         userId,
         batchIds: editableMemberBatchIds[String(userId)] ?? [],
         badgeTypes: editableMemberBadgeTypes[String(userId)] ?? [],
+        role: editableMemberRoles[String(userId)] ?? "member",
       });
     } catch (error) {
       Alert.alert(
@@ -367,6 +543,100 @@ export default function AdminScreen() {
         <Text style={styles.copy}>{activeTabConfig.description}</Text>
       </View>
 
+      {activeTab === "pending" ? (
+        <View style={styles.tabPanel}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Pending registrations</Text>
+            {safePendingRegistrations.length > 0 ? (
+              safePendingRegistrations.map((registration) => {
+                const selectedRole =
+                  pendingRoles[String(registration._id)] ?? "member";
+                const selectedBatchIdsForUser =
+                  pendingBatchIds[String(registration._id)] ?? [];
+
+                return (
+                  <View key={registration._id} style={styles.pendingItem}>
+                    <View style={styles.memberHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inviteTitle}>
+                          {registration.displayName}
+                        </Text>
+                        <Text style={styles.copy}>
+                          @{registration.username}
+                          {registration.email ? ` - ${registration.email}` : ""}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Role</Text>
+                      <RoleSelect
+                        role={selectedRole}
+                        username={registration.username}
+                        onChange={(role) => setPendingRole(registration._id, role)}
+                      />
+                    </View>
+
+                    {safeBatches.length > 0 ? (
+                      <View style={styles.fieldGroup}>
+                        <Text style={styles.fieldLabel}>Batch badges</Text>
+                        <View style={styles.batchOptions}>
+                          {safeBatches
+                            .filter((batch) => batch.isActive)
+                            .map((batch) => {
+                              const selected =
+                                selectedBatchIdsForUser.includes(batch._id);
+
+                              return (
+                                <PrimaryButton
+                                  key={batch._id}
+                                  label={batch.label}
+                                  onPress={() =>
+                                    togglePendingBatch(registration._id, batch._id)
+                                  }
+                                  variant={selected ? "solid" : "secondary"}
+                                />
+                              );
+                            })}
+                        </View>
+                        <BatchBadges
+                          batches={safeBatches.filter((batch) =>
+                            selectedBatchIdsForUser.includes(batch._id),
+                          )}
+                          compact
+                        />
+                      </View>
+                    ) : null}
+
+                    <View style={styles.actionRow}>
+                      <PrimaryButton
+                        label="Accept"
+                        onPress={() =>
+                          void handleAcceptPendingRegistration(registration._id)
+                        }
+                      />
+                      <PrimaryButton
+                        label="Decline"
+                        onPress={() =>
+                          void handleDeclinePendingRegistration(registration._id)
+                        }
+                        variant="secondary"
+                        disabled={registration.username === "saura"}
+                      />
+                    </View>
+                  </View>
+                );
+              })
+            ) : (
+              <EmptyState
+                title="No pending registrations"
+                description="People who sign in before they are invited will show up here."
+              />
+            )}
+          </View>
+        </View>
+      ) : null}
+
       {activeTab === "invites" ? (
         <View style={styles.tabPanel}>
           <View style={styles.section}>
@@ -380,16 +650,12 @@ export default function AdminScreen() {
               style={styles.input}
               value={githubUsername}
             />
-            <View style={styles.roleRow}>
-              <PrimaryButton
-                label="Member"
-                onPress={() => setInviteRole("member")}
-                variant={inviteRole === "member" ? "solid" : "secondary"}
-              />
-              <PrimaryButton
-                label="Admin"
-                onPress={() => setInviteRole("admin")}
-                variant={inviteRole === "admin" ? "solid" : "secondary"}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Role</Text>
+              <RoleSelect
+                role={inviteRole}
+                username={githubUsername}
+                onChange={setInviteRole}
               />
             </View>
             <View style={styles.batchPicker}>
@@ -438,7 +704,7 @@ export default function AdminScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.inviteTitle}>@{invite.githubUsername}</Text>
                     <Text style={styles.copy}>
-                      {invite.role}
+                      {formatRole(invite.role)}
                       {invite.revokedAt ? " - revoked" : " - active"}
                     </Text>
                     <BatchBadges batches={invite.batches ?? []} compact />
@@ -472,6 +738,8 @@ export default function AdminScreen() {
                   editableMemberBatchIds[String(member._id)] ?? [];
                 const memberBadgeTypes =
                   editableMemberBadgeTypes[String(member._id)] ?? [];
+                const memberRole =
+                  editableMemberRoles[String(member._id)] ?? (member.role as UserRole);
                 const hasCoreBadge = memberBadgeTypes.includes("core");
 
                 return (
@@ -482,9 +750,17 @@ export default function AdminScreen() {
                         <Text style={styles.copy}>
                           @{member.username}
                           {member.cityName ? ` - ${member.cityName}` : ""}
-                          {member.role === "admin" ? " - admin" : ""}
+                          {` - ${formatRole(memberRole)}`}
                         </Text>
                       </View>
+                    </View>
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Role</Text>
+                      <RoleSelect
+                        role={memberRole}
+                        username={member.username}
+                        onChange={(role) => setMemberRole(member._id, role)}
+                      />
                     </View>
                     <BatchBadges
                       batches={safeBatches.filter((batch) =>
@@ -525,7 +801,7 @@ export default function AdminScreen() {
                       </Text>
                     )}
                     <PrimaryButton
-                      label="Save member badges"
+                      label="Save member"
                       onPress={() => void handleSaveMemberBatches(member._id)}
                       variant="secondary"
                     />
@@ -879,6 +1155,45 @@ const styles = StyleSheet.create({
   roleRow: {
     gap: 8,
   },
+  roleSelect: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  roleOption: {
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    minHeight: 40,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  roleOptionSelected: {
+    backgroundColor: colors.selected,
+    borderColor: colors.selected,
+  },
+  roleOptionDisabled: {
+    opacity: 0.45,
+  },
+  roleOptionLabel: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  roleOptionLabelSelected: {
+    color: colors.background,
+  },
+  roleOptionLabelDisabled: {
+    color: colors.muted,
+  },
+  fieldGroup: {
+    gap: 8,
+  },
+  fieldLabel: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: "700",
+  },
   batchPicker: {
     gap: 10,
   },
@@ -913,6 +1228,12 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingTop: 12,
   },
+  pendingItem: {
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    gap: 12,
+    paddingTop: 12,
+  },
   memberHeader: {
     alignItems: "center",
     flexDirection: "row",
@@ -930,5 +1251,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  actionRow: {
+    gap: 8,
   },
 });

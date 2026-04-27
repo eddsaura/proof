@@ -7,6 +7,7 @@ import {
   findActiveInviteByUsername,
   normalizeUsername,
 } from "./lib/community";
+import { isAdminRole, resolveManagedRole } from "./lib/auth";
 
 function githubProfile(profile: Record<string, unknown>) {
   return {
@@ -38,7 +39,6 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     async createOrUpdateUser(ctx, args) {
       const profile = githubProfile(args.profile);
       const invite = await findActiveInviteByUsername(ctx, profile.username);
-      const role = invite?.role ?? "member";
       const now = Date.now();
 
       if (args.existingUserId !== null) {
@@ -47,6 +47,11 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         if (existingUser === null) {
           throw new Error("Expected existing user to be present.");
         }
+
+        const role = resolveManagedRole(
+          profile.username,
+          invite?.role ?? existingUser.role ?? "member",
+        );
 
         await ctx.db.patch(args.existingUserId, {
           authUserId: existingUser.authUserId,
@@ -60,7 +65,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           role,
         });
 
-        if (role === "admin") {
+        if (isAdminRole(role)) {
           await ensureDefaultCategories(ctx);
         }
 
@@ -68,6 +73,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 
         return args.existingUserId;
       }
+
+      const role = resolveManagedRole(profile.username, invite?.role ?? "member");
 
       const userId = await ctx.db.insert("users", {
         authUserId: profile.id || profile.username,
@@ -83,7 +90,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         createdAt: now,
       });
 
-      if (role === "admin") {
+      if (isAdminRole(role)) {
         await ensureDefaultCategories(ctx);
       }
 

@@ -23,8 +23,8 @@ export default defineSchema({
     countryCode: v.optional(v.string()),
     cityLat: v.optional(v.number()),
     cityLng: v.optional(v.number()),
-    role: v.union(v.literal("admin"), v.literal("member")),
-    status: v.union(v.literal("invited"), v.literal("active")),
+    role: v.union(v.literal("super-admin"), v.literal("admin"), v.literal("member")),
+    status: v.union(v.literal("invited"), v.literal("active"), v.literal("declined")),
     createdAt: v.number(),
   })
     .index("email", ["email"])
@@ -35,7 +35,7 @@ export default defineSchema({
     .index("by_status_username", ["status", "username"]),
   invites: defineTable({
     githubUsername: v.string(),
-    role: v.union(v.literal("admin"), v.literal("member")),
+    role: v.union(v.literal("super-admin"), v.literal("admin"), v.literal("member")),
     batchIds: v.optional(v.array(v.id("batches"))),
     invitedBy: v.optional(v.id("users")),
     createdAt: v.number(),

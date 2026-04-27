@@ -117,6 +117,13 @@ export const viewerState = query({
       };
     }
 
+    if (inviteState.kind === "declined") {
+      return {
+        kind: "declined" as const,
+        user,
+      };
+    }
+
     if (inviteState.kind === "onboarding") {
       return {
         kind: "onboarding" as const,
@@ -384,8 +391,8 @@ export const applyProfileUpdate = internalMutation({
     countryCode: v.string(),
     cityLat: v.number(),
     cityLng: v.number(),
-    role: v.union(v.literal("admin"), v.literal("member")),
-    status: v.union(v.literal("invited"), v.literal("active")),
+    role: v.union(v.literal("super-admin"), v.literal("admin"), v.literal("member")),
+    status: v.union(v.literal("invited"), v.literal("active"), v.literal("declined")),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.userId, {
