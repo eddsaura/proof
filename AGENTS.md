@@ -1,3 +1,7 @@
+## Local Development
+
+Do not start local development servers from agent sessions. The developer already keeps the local server running; use the existing server when verification needs a running app.
+
 <!-- convex-ai-start -->
 This project uses [Convex](https://convex.dev) as its backend.
 
