@@ -164,10 +164,25 @@ export const listMembersForAdmin = query({
       return [];
     }
 
-    const users = await ctx.db
+    const activeUsers = await ctx.db
       .query("users")
       .withIndex("by_status_username", (q) => q.eq("status", "active"))
       .collect();
+    const invitedUsers = await ctx.db
+      .query("users")
+      .withIndex("by_status_username", (q) => q.eq("status", "invited"))
+      .collect();
+    const acceptedInvitedUsers = (
+      await Promise.all(
+        invitedUsers.map(async (user) => {
+          const invite = await findActiveInviteByUsername(ctx, user.username);
+          return invite === null ? null : user;
+        }),
+      )
+    ).filter((user): user is NonNullable<typeof user> => user !== null);
+    const users = [...activeUsers, ...acceptedInvitedUsers].sort((left, right) =>
+      left.username.localeCompare(right.username),
+    );
 
     return await Promise.all(
       users.map(async (user) => ({
@@ -176,6 +191,7 @@ export const listMembersForAdmin = query({
         displayName: user.displayName,
         cityName: user.cityName,
         role: user.role,
+        status: user.status,
         batchIds: user.batchIds ?? [],
         badgeTypes: user.badgeTypes ?? [],
         batches: await resolveBatches(ctx, user.batchIds),

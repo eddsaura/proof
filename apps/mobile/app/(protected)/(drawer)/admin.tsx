@@ -751,6 +751,7 @@ export default function AdminScreen() {
                           @{member.username}
                           {member.cityName ? ` - ${member.cityName}` : ""}
                           {` - ${formatRole(memberRole)}`}
+                          {member.status === "invited" ? " - onboarding" : ""}
                         </Text>
                       </View>
                     </View>
