@@ -29,11 +29,14 @@ type ActiveMention = {
 
 type MentionInputProps = Omit<
   TextInputProps,
-  "onChangeText" | "onSelectionChange" | "style" | "value"
+  "onChangeText" | "onSelectionChange" | "selection" | "style" | "value"
 > & {
   inputStyle?: StyleProp<TextStyle>;
   onChangeText: (text: string) => void;
   onSelectionChange?: TextInputProps["onSelectionChange"];
+  onSelectionUpdate?: (selection: Selection) => void;
+  selection?: Selection;
+  suggestionsPlacement?: "above" | "below";
   value: string;
 };
 
@@ -77,6 +80,9 @@ export function MentionInput({
   inputStyle,
   onChangeText,
   onSelectionChange,
+  onSelectionUpdate,
+  selection: controlledSelection,
+  suggestionsPlacement = "below",
   value,
   ...textInputProps
 }: MentionInputProps) {
@@ -84,9 +90,10 @@ export function MentionInput({
     start: value.length,
     end: value.length,
   });
+  const textInputSelection = controlledSelection ?? selection;
   const activeMention = useMemo(
-    () => findActiveMention(value, selection),
-    [selection, value],
+    () => findActiveMention(value, textInputSelection),
+    [textInputSelection, value],
   );
   const candidates = useQuery(
     api.users.searchMentionCandidates,
@@ -97,7 +104,10 @@ export function MentionInput({
   function handleSelectionChange(
     event: NativeSyntheticEvent<TextInputSelectionChangeEventData>,
   ) {
-    setSelection(event.nativeEvent.selection);
+    const nextSelection = event.nativeEvent.selection;
+
+    setSelection(nextSelection);
+    onSelectionUpdate?.(nextSelection);
     onSelectionChange?.(event);
   }
 
@@ -113,45 +123,50 @@ export function MentionInput({
 
     onChangeText(nextValue);
     setSelection({ start: nextCursor, end: nextCursor });
+    onSelectionUpdate?.({ start: nextCursor, end: nextCursor });
   }
+
+  const suggestions =
+    visibleCandidates.length > 0 ? (
+      <View style={styles.suggestions}>
+        {visibleCandidates.map((user) => (
+          <Pressable
+            accessibilityLabel={`Mention ${user.displayName}`}
+            accessibilityRole="button"
+            key={user._id}
+            onPress={() => handleSelectMention(user.username)}
+            style={({ pressed }) => [
+              styles.suggestion,
+              pressed ? styles.suggestionPressed : null,
+            ]}
+          >
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{getInitials(user.displayName)}</Text>
+            </View>
+            <View style={styles.suggestionCopy}>
+              <Text style={styles.suggestionName}>{user.displayName}</Text>
+              <Text style={styles.suggestionMeta}>
+                @{user.username}
+                {user.cityName ? ` - ${user.cityName}` : ""}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+      </View>
+    ) : null;
 
   return (
     <View style={styles.container}>
+      {suggestionsPlacement === "above" ? suggestions : null}
       <TextInput
         {...textInputProps}
         onChangeText={onChangeText}
         onSelectionChange={handleSelectionChange}
-        selection={selection}
+        selection={textInputSelection}
         style={inputStyle}
         value={value}
       />
-      {visibleCandidates.length > 0 ? (
-        <View style={styles.suggestions}>
-          {visibleCandidates.map((user) => (
-            <Pressable
-              accessibilityLabel={`Mention ${user.displayName}`}
-              accessibilityRole="button"
-              key={user._id}
-              onPress={() => handleSelectMention(user.username)}
-              style={({ pressed }) => [
-                styles.suggestion,
-                pressed ? styles.suggestionPressed : null,
-              ]}
-            >
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{getInitials(user.displayName)}</Text>
-              </View>
-              <View style={styles.suggestionCopy}>
-                <Text style={styles.suggestionName}>{user.displayName}</Text>
-                <Text style={styles.suggestionMeta}>
-                  @{user.username}
-                  {user.cityName ? ` - ${user.cityName}` : ""}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
+      {suggestionsPlacement === "below" ? suggestions : null}
     </View>
   );
 }

@@ -17,7 +17,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { MentionInput } from "@/components/mention-input";
 import { PrimaryButton } from "@/components/primary-button";
 import { useMutation, useQuery } from "@/lib/convex";
-import { colors } from "@/lib/theme";
+import { colors, layout } from "@/lib/theme";
 
 export default function CreateTabScreen() {
   const categories = useQuery(api.feed.listCategories, {});
@@ -184,7 +184,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: 16,
+    alignSelf: "center",
+    maxWidth: layout.formMaxWidth,
+    padding: layout.pagePadding,
+    width: "100%",
     gap: 16,
   },
   hero: {
@@ -223,7 +226,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   selectPressed: {
-    borderColor: colors.accent,
+    borderColor: colors.selected,
   },
   selectText: {
     color: colors.ink,
@@ -261,7 +264,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   selectOptionActive: {
-    backgroundColor: colors.accentSoft,
+    backgroundColor: colors.selectedSoft,
   },
   selectOptionPressed: {
     backgroundColor: colors.border,
@@ -272,7 +275,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   selectOptionTextActive: {
-    color: colors.accent,
+    color: colors.selected,
   },
   input: {
     borderRadius: 10,

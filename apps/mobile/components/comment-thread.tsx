@@ -1,7 +1,9 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ArrowBendUpLeftIcon } from "phosphor-react-native";
 
 import type { Id } from "@/convex/_generated/dataModel";
 import { MentionText } from "@/components/mention-text";
+import { ProfileUsername } from "@/components/profile-username";
 import { colors } from "@/lib/theme";
 import { formatRelativeTime } from "@/lib/time";
 
@@ -18,13 +20,23 @@ export function CommentThread({
     <View style={[styles.container, { marginLeft: Math.min(depth, 2) * 16 }]}>
       <View style={styles.commentRow}>
         <Text style={styles.meta}>
-          @{comment.author?.username ?? "unknown"} • {formatRelativeTime(comment.createdAt)}
+          <ProfileUsername
+            username={comment.author?.username}
+            muted
+            style={styles.metaUsername}
+          />{" "}
+          • {formatRelativeTime(comment.createdAt)}
         </Text>
         <MentionText text={comment.body} style={styles.body} />
         <Pressable
           accessibilityRole="button"
           onPress={() => onReply(comment._id, comment.author?.username ?? "unknown")}
+          style={({ pressed }) => [
+            styles.replyButton,
+            pressed ? styles.replyButtonPressed : null,
+          ]}
         >
+          <ArrowBendUpLeftIcon color={colors.accent} size={15} weight="bold" />
           <Text style={styles.reply}>Reply</Text>
         </Pressable>
       </View>
@@ -48,7 +60,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   commentRow: {
-    borderTopColor: colors.border,
+    borderTopColor: "rgba(247, 241, 229, 0.12)",
     borderTopWidth: 1,
     paddingVertical: 14,
     gap: 8,
@@ -57,10 +69,23 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 12,
   },
+  metaUsername: {
+    color: colors.muted,
+    fontSize: 12,
+  },
   body: {
     color: colors.ink,
     fontSize: 14,
     lineHeight: 21,
+  },
+  replyButton: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  replyButtonPressed: {
+    opacity: 0.72,
   },
   reply: {
     color: colors.accent,

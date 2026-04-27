@@ -5,7 +5,7 @@ import { colors } from "@/lib/theme";
 export function LoadingScreen({ message }: { message: string }) {
   return (
     <View style={styles.container}>
-      <ActivityIndicator color={colors.accent} size="large" />
+      <ActivityIndicator color={colors.muted} size="large" />
       <Text style={styles.message}>{message}</Text>
     </View>
   );

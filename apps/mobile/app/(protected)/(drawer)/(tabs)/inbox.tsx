@@ -4,9 +4,11 @@ import { router } from "expo-router";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { EmptyState } from "@/components/empty-state";
+import { MentionText } from "@/components/mention-text";
+import { ProfileUsername } from "@/components/profile-username";
 import { PrimaryButton } from "@/components/primary-button";
 import { useMutation, useQuery } from "@/lib/convex";
-import { colors } from "@/lib/theme";
+import { colors, layout } from "@/lib/theme";
 import { formatRelativeTime } from "@/lib/time";
 
 export default function InboxTabScreen() {
@@ -42,15 +44,17 @@ export default function InboxTabScreen() {
           <View key={notification._id} style={styles.notificationRow}>
             <View style={styles.notificationHeader}>
               <Text style={styles.notificationTitle}>
-                @{notification.actor?.username ?? "unknown"} mentioned you
+                <ProfileUsername username={notification.actor?.username} /> mentioned you
               </Text>
               <Text style={styles.meta}>
                 {formatRelativeTime(notification.createdAt)}
               </Text>
             </View>
-            <Text style={styles.notificationCopy}>
-              {notification.comment?.body ?? notification.post?.title ?? "Open the thread"}
-            </Text>
+            <MentionText
+              text={notification.comment?.body ?? notification.post?.title ?? "Open the thread"}
+              style={styles.notificationCopy}
+              numberOfLines={3}
+            />
             <PrimaryButton
               label={notification.readAt ? "Open thread" : "Mark read and open"}
               onPress={() =>
@@ -76,7 +80,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: 16,
+    alignSelf: "center",
+    maxWidth: layout.readingMaxWidth,
+    padding: layout.pagePadding,
+    width: "100%",
     gap: 14,
   },
   hero: {

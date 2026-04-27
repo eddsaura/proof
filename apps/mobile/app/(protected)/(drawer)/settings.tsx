@@ -2,7 +2,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
-import { colors } from "@/lib/theme";
+import { colors, layout } from "@/lib/theme";
 
 export default function SettingsScreen() {
   const { signOut } = useAuthActions();
@@ -30,7 +30,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: 16,
+    alignSelf: "center",
+    maxWidth: layout.formMaxWidth,
+    padding: layout.pagePadding,
+    width: "100%",
     gap: 14,
   },
   header: {

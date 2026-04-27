@@ -3,6 +3,14 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { requireActiveUser } from "./lib/auth";
 
+async function resolveBatches(ctx: any, batchIds: string[] | undefined) {
+  const batches = await Promise.all((batchIds ?? []).map((batchId) => ctx.db.get(batchId)));
+
+  return batches
+    .filter(Boolean)
+    .sort((left: any, right: any) => left.sortOrder - right.sortOrder);
+}
+
 export const listMembers = query({
   args: {
     search: v.string(),
@@ -16,7 +24,7 @@ export const listMembers = query({
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
 
-    return users
+    const members = users
       .filter((user) => user.cityLat !== undefined && user.cityLng !== undefined)
       .filter((user) => {
         if (!normalizedSearch) {
@@ -32,5 +40,13 @@ export const listMembers = query({
         const rightKey = `${right.cityName ?? ""}-${right.displayName}`;
         return leftKey.localeCompare(rightKey);
       });
+
+    return await Promise.all(
+      members.map(async (member) => ({
+        ...member,
+        badgeTypes: member.badgeTypes ?? [],
+        batches: await resolveBatches(ctx, member.batchIds),
+      })),
+    );
   },
 });

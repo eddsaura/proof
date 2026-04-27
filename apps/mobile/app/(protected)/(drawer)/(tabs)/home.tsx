@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import {
-  ActivityIndicator,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,9 +12,9 @@ import { router, useLocalSearchParams } from "expo-router";
 import { api } from "@/convex/_generated/api";
 import { EmptyState } from "@/components/empty-state";
 import { LoadingScreen } from "@/components/loading-screen";
-import { PostCard } from "@/components/post-card";
+import { PostRow } from "@/components/post-row";
 import { useQuery } from "@/lib/convex";
-import { colors } from "@/lib/theme";
+import { colors, layout } from "@/lib/theme";
 
 export default function HomeTabScreen() {
   const params = useLocalSearchParams<{ category?: string | string[] }>();
@@ -30,6 +30,7 @@ export default function HomeTabScreen() {
     categories === undefined ? "skip" : { categoryId: selectedCategoryId },
   );
   const previousPosts = useRef<typeof posts>(undefined);
+  const feedOpacity = useRef(new Animated.Value(1)).current;
 
   if (posts !== undefined) {
     previousPosts.current = posts;
@@ -48,6 +49,14 @@ export default function HomeTabScreen() {
   const visiblePosts = posts ?? previousPosts.current;
   const isFiltering =
     posts === undefined && previousPosts.current !== undefined;
+
+  useEffect(() => {
+    Animated.timing(feedOpacity, {
+      toValue: isFiltering ? 0.62 : 1,
+      duration: isFiltering ? 120 : 180,
+      useNativeDriver: true,
+    }).start();
+  }, [feedOpacity, isFiltering]);
 
   if (categories === undefined || visiblePosts === undefined) {
     return <LoadingScreen message="Loading the community feed..." />;
@@ -111,35 +120,42 @@ export default function HomeTabScreen() {
 
       <View style={styles.feed}>
         {isFiltering ? (
-          <View style={styles.filteringStatus}>
-            <ActivityIndicator color={colors.accent} />
-            <Text style={styles.filteringLabel}>Updating feed</Text>
+          <View
+            accessible
+            accessibilityLabel="Updating feed"
+            accessibilityLiveRegion="polite"
+            pointerEvents="none"
+            style={styles.filteringTrack}
+          >
+            <View style={styles.filteringFill} />
           </View>
         ) : null}
 
-        {visiblePosts.length > 0 ? (
-          visiblePosts.map((post) => (
-            <PostCard
-              key={post._id}
-              post={post}
-              onPress={() =>
-                router.push({
-                  pathname: "/(protected)/post/[id]",
-                  params: { id: post._id },
-                })
+        <Animated.View style={[styles.feedBody, { opacity: feedOpacity }]}>
+          {visiblePosts.length > 0 ? (
+            visiblePosts.map((post) => (
+              <PostRow
+                key={post._id}
+                post={post}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(protected)/post/[id]",
+                    params: { id: post._id },
+                  })
+                }
+              />
+            ))
+          ) : (
+            <EmptyState
+              title="No posts yet"
+              description={
+                selectedCategory
+                  ? "Be the first builder to start a thread in this category."
+                  : "Be the first builder to start a thread in the community feed."
               }
             />
-          ))
-        ) : (
-          <EmptyState
-            title="No posts yet"
-            description={
-              selectedCategory
-                ? "Be the first builder to start a thread in this category."
-                : "Be the first builder to start a thread in the community feed."
-            }
-          />
-        )}
+          )}
+        </Animated.View>
       </View>
     </ScrollView>
   );
@@ -151,9 +167,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    paddingHorizontal: 20,
+    alignSelf: "center",
+    maxWidth: layout.feedMaxWidth,
+    paddingHorizontal: layout.pagePadding,
     paddingTop: 24,
     paddingBottom: 32,
+    width: "100%",
     gap: 20,
   },
   hero: {
@@ -171,15 +190,15 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   mapShortcut: {
-    borderTopColor: colors.accent,
-    borderBottomColor: colors.accent,
+    borderTopColor: colors.selected,
+    borderBottomColor: colors.selected,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     paddingVertical: 14,
     gap: 3,
   },
   mapShortcutLabel: {
-    color: colors.accent,
+    color: colors.selected,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -199,7 +218,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   chipActive: {
-    borderBottomColor: colors.accent,
+    borderBottomColor: colors.selected,
     borderBottomWidth: 2,
   },
   chipLabel: {
@@ -208,22 +227,27 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   chipLabelActive: {
-    color: colors.accent,
+    color: colors.selected,
   },
   feed: {
+    position: "relative",
+  },
+  feedBody: {
     gap: 12,
   },
-  filteringStatus: {
-    alignItems: "center",
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    gap: 8,
-    paddingBottom: 12,
+  filteringTrack: {
+    backgroundColor: colors.border,
+    height: 1,
+    left: 0,
+    opacity: 0.9,
+    position: "absolute",
+    right: 0,
+    top: -10,
+    zIndex: 1,
   },
-  filteringLabel: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: "600",
+  filteringFill: {
+    backgroundColor: colors.selected,
+    height: 1,
+    width: "32%",
   },
 });

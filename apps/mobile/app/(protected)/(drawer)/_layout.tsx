@@ -1,27 +1,48 @@
 import { Drawer } from "expo-router/drawer";
+import { Platform, useWindowDimensions } from "react-native";
 
 import { AppDrawerContent } from "@/components/app-drawer-content";
+import { BrandLogo } from "@/components/brand-assets";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "@/lib/convex";
-import { colors } from "@/lib/theme";
+import { colors, layout } from "@/lib/theme";
 
 export default function DrawerLayout() {
+  const dimensions = useWindowDimensions();
   const viewerState = useQuery(api.users.viewerState, {});
   const isAdmin = viewerState?.kind === "active" && viewerState.user.role === "admin";
+  const isDesktopLayout =
+    Platform.OS === "web" && dimensions.width >= layout.desktopBreakpoint;
 
   return (
     <Drawer
       drawerContent={(props) => (
-        <AppDrawerContent {...props} isAdmin={Boolean(isAdmin)} />
+        <AppDrawerContent
+          {...props}
+          isAdmin={Boolean(isAdmin)}
+          isDesktopLayout={isDesktopLayout}
+        />
       )}
       screenOptions={{
-        drawerActiveBackgroundColor: colors.accentSoft,
-        drawerActiveTintColor: colors.accent,
-        drawerInactiveTintColor: colors.muted,
+        drawerActiveBackgroundColor: colors.selectedSoft,
+        drawerActiveTintColor: colors.selected,
+        drawerInactiveTintColor: colors.ink,
         drawerStyle: {
           backgroundColor: colors.background,
+          borderRightColor: colors.border,
+          borderRightWidth: isDesktopLayout ? 1 : 0,
+          width: layout.drawerWidth,
         },
-        drawerType: "slide",
+        drawerType: isDesktopLayout
+          ? "permanent"
+          : Platform.OS === "web"
+            ? "front"
+            : "slide",
+        headerLeft: isDesktopLayout ? () => null : undefined,
+        headerTitle: () => (
+          <BrandLogo color={colors.ink} width={58} height={20} />
+        ),
+        headerTitleAlign: "center",
         headerStyle: {
           backgroundColor: colors.background,
         },
@@ -30,9 +51,10 @@ export default function DrawerLayout() {
           fontSize: 18,
           fontWeight: "700",
         },
-        sceneContainerStyle: {
+        sceneStyle: {
           backgroundColor: colors.background,
         },
+        swipeEnabled: !isDesktopLayout && Platform.OS !== "web",
       }}
     >
       <Drawer.Screen

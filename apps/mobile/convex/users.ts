@@ -5,6 +5,16 @@ import { api, internal } from "./_generated/api";
 import { action, internalMutation, internalQuery, query } from "./_generated/server";
 import { getCurrentUser, requireActiveUser, resolveInviteState } from "./lib/auth";
 
+const locationValidator = v.object({
+  cityName: v.string(),
+  countryCode: v.string(),
+  cityLat: v.number(),
+  cityLng: v.number(),
+  region: v.optional(v.union(v.string(), v.null())),
+  country: v.optional(v.union(v.string(), v.null())),
+  label: v.optional(v.string()),
+});
+
 async function geocodeCity(cityName: string) {
   const response = await fetch(
     `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=en&format=json`,
@@ -37,6 +47,39 @@ async function geocodeCity(cityName: string) {
     cityLat: result.latitude,
     cityLng: result.longitude,
   };
+}
+
+function formatCityLabel(location: {
+  name?: string;
+  admin1?: string;
+  country?: string;
+  country_code?: string;
+}) {
+  const place = [location.name, location.admin1].filter(Boolean).join(", ");
+  const country = location.country_code ?? location.country;
+  return [place, country].filter(Boolean).join(", ");
+}
+
+function normalizeLocation(location: {
+  cityName: string;
+  countryCode: string;
+  cityLat: number;
+  cityLng: number;
+}) {
+  return {
+    cityName: location.cityName.trim(),
+    countryCode: location.countryCode.trim(),
+    cityLat: location.cityLat,
+    cityLng: location.cityLng,
+  };
+}
+
+async function resolveBatches(ctx: any, batchIds: string[] | undefined) {
+  const batches = await Promise.all((batchIds ?? []).map((batchId) => ctx.db.get(batchId)));
+
+  return batches
+    .filter(Boolean)
+    .sort((left: any, right: any) => left.sortOrder - right.sortOrder);
 }
 
 export const viewerState = query({
@@ -116,8 +159,34 @@ export const getByUsername = query({
 
     return {
       user,
+      badgeTypes: user.badgeTypes ?? [],
+      batches: await resolveBatches(ctx, user.batchIds),
       recentPosts: postSummaries,
     };
+  },
+});
+
+export const getMyProfile = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireActiveUser(ctx);
+
+    return {
+      user,
+      badgeTypes: user.badgeTypes ?? [],
+      batches: await resolveBatches(ctx, user.batchIds),
+    };
+  },
+});
+
+export const listActiveBatches = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireActiveUser(ctx);
+
+    const batches = await ctx.db.query("batches").withIndex("by_sortOrder").collect();
+
+    return batches.filter((batch) => batch.isActive);
   },
 });
 
@@ -152,11 +221,69 @@ export const searchMentionCandidates = query({
   },
 });
 
+export const searchCities = action({
+  args: {
+    query: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const search = args.query.trim();
+
+    if (search.length < 2) {
+      return [];
+    }
+
+    const response = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(search)}&count=6&language=en&format=json`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Could not search cities right now.");
+    }
+
+    const payload = (await response.json()) as {
+      results?: {
+        id?: number;
+        latitude: number;
+        longitude: number;
+        country_code?: string;
+        name?: string;
+        admin1?: string;
+        country?: string;
+      }[];
+    };
+
+    const seen = new Set<string>();
+
+    return (payload.results ?? [])
+      .map((result) => ({
+        id: String(result.id ?? `${result.name}-${result.country_code}-${result.latitude}`),
+        cityName: result.name ?? search,
+        countryCode: result.country_code ?? result.country ?? "",
+        cityLat: result.latitude,
+        cityLng: result.longitude,
+        region: result.admin1 ?? null,
+        country: result.country ?? null,
+        label: formatCityLabel(result),
+      }))
+      .filter((location) => {
+        const key = `${location.cityName}-${location.countryCode}-${location.region}`;
+
+        if (seen.has(key)) {
+          return false;
+        }
+
+        seen.add(key);
+        return true;
+      });
+  },
+});
+
 export const completeProfile = action({
   args: {
     displayName: v.string(),
     bio: v.string(),
-    cityName: v.string(),
+    cityName: v.optional(v.string()),
+    location: v.optional(locationValidator),
   },
   handler: async (ctx, args) => {
     const authUserId = await getAuthUserId(ctx);
@@ -171,12 +298,15 @@ export const completeProfile = action({
       throw new Error("Your account is not ready for onboarding.");
     }
 
-    const location = await geocodeCity(args.cityName);
+    const location = args.location
+      ? normalizeLocation(args.location)
+      : await geocodeCity(args.cityName ?? "");
 
     await ctx.runMutation(internal.users.applyProfileUpdate, {
       userId: authUserId,
       displayName: args.displayName.trim(),
       bio: args.bio.trim(),
+      batchIds: viewer.invite.batchIds,
       role: viewer.invite.role,
       status: "active",
       ...location,
@@ -190,7 +320,8 @@ export const updateMyProfile = action({
   args: {
     displayName: v.string(),
     bio: v.string(),
-    cityName: v.string(),
+    cityName: v.optional(v.string()),
+    location: v.optional(locationValidator),
   },
   handler: async (ctx, args) => {
     const authUserId = await getAuthUserId(ctx);
@@ -205,12 +336,15 @@ export const updateMyProfile = action({
       throw new Error("Only active members can update their profile.");
     }
 
-    const location = await geocodeCity(args.cityName);
+    const location = args.location
+      ? normalizeLocation(args.location)
+      : await geocodeCity(args.cityName ?? "");
 
     await ctx.runMutation(internal.users.applyProfileUpdate, {
       userId: authUserId,
       displayName: args.displayName.trim(),
       bio: args.bio.trim(),
+      batchIds: viewer.user.batchIds,
       role: viewer.user.role,
       status: "active",
       ...location,
@@ -225,6 +359,7 @@ export const applyProfileUpdate = internalMutation({
     userId: v.id("users"),
     displayName: v.string(),
     bio: v.string(),
+    batchIds: v.optional(v.array(v.id("batches"))),
     cityName: v.string(),
     countryCode: v.string(),
     cityLat: v.number(),
@@ -236,6 +371,7 @@ export const applyProfileUpdate = internalMutation({
     await ctx.db.patch(args.userId, {
       displayName: args.displayName,
       bio: args.bio,
+      batchIds: args.batchIds,
       cityName: args.cityName,
       countryCode: args.countryCode,
       cityLat: args.cityLat,

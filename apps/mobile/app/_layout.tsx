@@ -5,7 +5,7 @@ import * as SecureStore from "expo-secure-store";
 import { StatusBar } from "expo-status-bar";
 import { ConvexReactClient } from "convex/react";
 import { useCallback, useEffect, useRef } from "react";
-import { Platform, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import * as WebBrowser from "expo-web-browser";
@@ -28,7 +28,7 @@ const navigationTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    primary: colors.accent,
+    primary: colors.selected,
     background: colors.background,
     card: colors.background,
     text: colors.ink,
@@ -99,63 +99,78 @@ export default function RootLayout() {
 
   if (!convex) {
     return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <View
-          style={{
-            flex: 1,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: colors.background,
-            padding: 24,
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 24,
-              fontWeight: "700",
-              color: colors.ink,
-              textAlign: "center",
-            }}
-          >
-            Missing EXPO_PUBLIC_CONVEX_URL
-          </Text>
-          <Text
-            style={{
-              marginTop: 12,
-              fontSize: 15,
-              lineHeight: 22,
-              color: colors.muted,
-              textAlign: "center",
-            }}
-          >
-            Add your Convex deployment URL to apps/mobile/.env before starting
-            the app.
-          </Text>
+      <GestureHandlerRootView style={styles.root}>
+        <View style={styles.appFrame}>
+          <View style={styles.missingConfig}>
+            <Text
+              style={{
+                fontSize: 24,
+                fontWeight: "700",
+                color: colors.ink,
+                textAlign: "center",
+              }}
+            >
+              Missing EXPO_PUBLIC_CONVEX_URL
+            </Text>
+            <Text
+              style={{
+                marginTop: 12,
+                fontSize: 15,
+                lineHeight: 22,
+                color: colors.muted,
+                textAlign: "center",
+              }}
+            >
+              Add your Convex deployment URL to apps/mobile/.env before starting
+              the app.
+            </Text>
+          </View>
         </View>
       </GestureHandlerRootView>
     );
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ConvexAuthProvider
-        client={convex}
-        storage={
-          Platform.OS === "android" || Platform.OS === "ios"
-            ? secureStorage
-            : undefined
-        }
-        replaceURL={replaceURL}
-      >
-        <ThemeProvider value={navigationTheme}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(public)" />
-            <Stack.Screen name="(protected)" />
-          </Stack>
-          <StatusBar style="light" />
-        </ThemeProvider>
-      </ConvexAuthProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <View style={styles.appFrame}>
+        <ConvexAuthProvider
+          client={convex}
+          storage={
+            Platform.OS === "android" || Platform.OS === "ios"
+              ? secureStorage
+              : undefined
+          }
+          replaceURL={replaceURL}
+        >
+          <ThemeProvider value={navigationTheme}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(public)" />
+              <Stack.Screen name="(protected)" />
+            </Stack>
+            <StatusBar style="light" />
+          </ThemeProvider>
+        </ConvexAuthProvider>
+      </View>
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  appFrame: {
+    flex: 1,
+    width: "100%",
+    backgroundColor: colors.background,
+  },
+  missingConfig: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background,
+    padding: 24,
+  },
+});

@@ -30,6 +30,9 @@ export default function OnboardingScreen() {
         displayName: viewerState.user.displayName,
         bio: viewerState.user.bio ?? "",
         cityName: viewerState.user.cityName ?? "",
+        countryCode: viewerState.user.countryCode,
+        cityLat: viewerState.user.cityLat,
+        cityLng: viewerState.user.cityLng,
       }}
       onSubmit={completeProfile}
     />

@@ -15,7 +15,7 @@ import {
 import { api } from "@/convex/_generated/api";
 import { PrimaryButton } from "@/components/primary-button";
 import { useMutation, useQuery } from "@/lib/convex";
-import { colors } from "@/lib/theme";
+import { colors, layout } from "@/lib/theme";
 
 const redirectTo = makeRedirectUri({
   scheme: "proofsocialmobile",
@@ -140,8 +140,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   container: {
+    alignSelf: "center",
     flexGrow: 1,
-    padding: 20,
+    maxWidth: layout.formMaxWidth,
+    padding: layout.pagePadding,
+    width: "100%",
     gap: 18,
     justifyContent: "center",
   },
@@ -170,7 +173,7 @@ const styles = StyleSheet.create({
   },
   bootstrap: {
     borderRadius: 10,
-    backgroundColor: colors.accentSoft,
+    backgroundColor: colors.selectedSoft,
     padding: 20,
     gap: 10,
   },

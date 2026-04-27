@@ -14,7 +14,7 @@ export const Colors = {
     tint: lightColors.accent,
     icon: lightColors.muted,
     tabIconDefault: lightColors.muted,
-    tabIconSelected: lightColors.accent,
+    tabIconSelected: lightColors.selected,
   },
   dark: {
     text: darkColors.ink,
@@ -22,7 +22,7 @@ export const Colors = {
     tint: darkColors.accent,
     icon: darkColors.muted,
     tabIconDefault: darkColors.muted,
-    tabIconSelected: darkColors.accent,
+    tabIconSelected: darkColors.selected,
   },
 };
 

@@ -1,13 +1,14 @@
 import { useLocalSearchParams } from "expo-router";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "@/convex/_generated/api";
+import { BatchBadges } from "@/components/batch-badges";
 import { EmptyState } from "@/components/empty-state";
 import { LoadingScreen } from "@/components/loading-screen";
 import { MentionText } from "@/components/mention-text";
-import { PostCard } from "@/components/post-card";
+import { PostRow } from "@/components/post-row";
 import { useQuery } from "@/lib/convex";
-import { colors } from "@/lib/theme";
+import { colors, layout } from "@/lib/theme";
 
 export default function MemberProfileScreen() {
   const params = useLocalSearchParams<{ username: string }>();
@@ -33,11 +34,26 @@ export default function MemberProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.hero}>
-        <Text style={styles.title}>{member.user.displayName}</Text>
-        <Text style={styles.meta}>
-          @{member.user.username}
-          {member.user.cityName ? ` • ${member.user.cityName}` : ""}
-        </Text>
+        <View style={styles.identityRow}>
+          {member.user.avatarUrl ? (
+            <Image source={{ uri: member.user.avatarUrl }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Text style={styles.avatarInitial}>
+                {member.user.displayName.slice(0, 1).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={styles.identityCopy}>
+            <Text style={styles.title}>{member.user.displayName}</Text>
+            <Text style={styles.meta}>
+              @{member.user.username}
+              {member.user.cityName ? ` - ${member.user.cityName}` : ""}
+              {member.user.countryCode ? `, ${member.user.countryCode}` : ""}
+            </Text>
+          </View>
+        </View>
+        <BatchBadges batches={member.batches} badgeTypes={member.badgeTypes} />
         {member.user.bio ? (
           <MentionText text={member.user.bio} style={styles.bio} />
         ) : null}
@@ -46,7 +62,7 @@ export default function MemberProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recent threads</Text>
         {member.recentPosts.length > 0 ? (
-          member.recentPosts.map((post: any) => <PostCard key={post._id} post={post} />)
+          member.recentPosts.map((post: any) => <PostRow key={post._id} post={post} />)
         ) : (
           <EmptyState
             title="No threads yet"
@@ -64,16 +80,48 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: 16,
-    gap: 14,
+    alignSelf: "center",
+    maxWidth: layout.readingMaxWidth,
+    padding: layout.pagePadding,
+    width: "100%",
+    gap: 22,
   },
   hero: {
-    paddingVertical: 10,
-    gap: 8,
+    paddingVertical: 12,
+    gap: 16,
+  },
+  identityRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 14,
+  },
+  identityCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  avatar: {
+    borderRadius: 28,
+    height: 56,
+    width: 56,
+  },
+  avatarFallback: {
+    alignItems: "center",
+    backgroundColor: colors.paper,
+    borderColor: colors.border,
+    borderRadius: 28,
+    borderWidth: 1,
+    height: 56,
+    justifyContent: "center",
+    width: 56,
+  },
+  avatarInitial: {
+    color: colors.ink,
+    fontSize: 22,
+    fontWeight: "800",
   },
   title: {
     color: colors.ink,
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: "700",
   },
   meta: {

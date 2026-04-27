@@ -1,7 +1,12 @@
 import GitHub from "@auth/core/providers/github";
 import { convexAuth } from "@convex-dev/auth/server";
 
-import { ensureDefaultCategories, findActiveInviteByUsername, normalizeUsername } from "./lib/community";
+import {
+  ensureDefaultBatches,
+  ensureDefaultCategories,
+  findActiveInviteByUsername,
+  normalizeUsername,
+} from "./lib/community";
 
 function githubProfile(profile: Record<string, unknown>) {
   return {
@@ -51,12 +56,15 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           email: profile.email ?? existingUser.email,
           displayName: existingUser.displayName || profile.name || existingUser.username,
           avatarUrl: profile.image ?? existingUser.avatarUrl,
+          batchIds: invite?.batchIds ?? existingUser.batchIds,
           role,
         });
 
         if (role === "admin") {
           await ensureDefaultCategories(ctx);
         }
+
+        await ensureDefaultBatches(ctx);
 
         return args.existingUserId;
       }
@@ -69,6 +77,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         email: profile.email,
         displayName: profile.name || profile.username,
         avatarUrl: profile.image,
+        batchIds: invite?.batchIds,
         role,
         status: "invited",
         createdAt: now,
@@ -77,6 +86,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       if (role === "admin") {
         await ensureDefaultCategories(ctx);
       }
+
+      await ensureDefaultBatches(ctx);
 
       return userId;
     },

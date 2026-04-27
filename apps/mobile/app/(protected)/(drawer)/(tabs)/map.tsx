@@ -11,10 +11,12 @@ import { router } from "expo-router";
 import { api } from "@/convex/_generated/api";
 import { EmptyState } from "@/components/empty-state";
 import { BuilderMap } from "@/components/builder-map";
+import { BatchBadges } from "@/components/batch-badges";
 import { MentionText } from "@/components/mention-text";
+import { ProfileUsername } from "@/components/profile-username";
 import { PrimaryButton } from "@/components/primary-button";
 import { useQuery } from "@/lib/convex";
-import { colors } from "@/lib/theme";
+import { colors, layout } from "@/lib/theme";
 
 export default function MapTabScreen() {
   const [search, setSearch] = useState("");
@@ -77,11 +79,21 @@ export default function MapTabScreen() {
       <View style={styles.list}>
         {members?.length ? (
           members.map((member) => (
-            <View key={member._id} style={styles.memberCard}>
+            <View key={member._id} style={styles.memberRow}>
               <Text style={styles.memberName}>{member.displayName}</Text>
               <Text style={styles.memberMeta}>
-                @{member.username} • {member.cityName}
+                <ProfileUsername
+                  username={member.username}
+                  muted
+                  style={styles.memberMetaUsername}
+                />{" "}
+                - {member.cityName}
               </Text>
+              <BatchBadges
+                batches={member.batches ?? []}
+                badgeTypes={member.badgeTypes ?? []}
+                compact
+              />
               {member.bio ? (
                 <MentionText text={member.bio} style={styles.memberBio} />
               ) : null}
@@ -114,7 +126,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: 16,
+    alignSelf: "center",
+    maxWidth: layout.feedMaxWidth,
+    padding: layout.pagePadding,
+    width: "100%",
     gap: 14,
   },
   hero: {
@@ -145,7 +160,7 @@ const styles = StyleSheet.create({
   list: {
     gap: 12,
   },
-  memberCard: {
+  memberRow: {
     borderTopColor: colors.border,
     borderTopWidth: 1,
     paddingVertical: 16,
@@ -157,6 +172,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   memberMeta: {
+    color: colors.muted,
+    fontSize: 13,
+  },
+  memberMetaUsername: {
     color: colors.muted,
     fontSize: 13,
   },

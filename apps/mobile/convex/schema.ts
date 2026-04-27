@@ -17,6 +17,8 @@ export default defineSchema({
     displayName: v.string(),
     avatarUrl: v.optional(v.string()),
     bio: v.optional(v.string()),
+    batchIds: v.optional(v.array(v.id("batches"))),
+    badgeTypes: v.optional(v.array(v.literal("core"))),
     cityName: v.optional(v.string()),
     countryCode: v.optional(v.string()),
     cityLat: v.optional(v.number()),
@@ -34,10 +36,23 @@ export default defineSchema({
   invites: defineTable({
     githubUsername: v.string(),
     role: v.union(v.literal("admin"), v.literal("member")),
+    batchIds: v.optional(v.array(v.id("batches"))),
     invitedBy: v.optional(v.id("users")),
     createdAt: v.number(),
     revokedAt: v.optional(v.number()),
   }).index("by_githubUsername", ["githubUsername"]),
+  batches: defineTable({
+    slug: v.string(),
+    label: v.string(),
+    houseName: v.string(),
+    cityName: v.string(),
+    startsOn: v.optional(v.string()),
+    endsOn: v.optional(v.string()),
+    sortOrder: v.number(),
+    isActive: v.boolean(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_sortOrder", ["sortOrder"]),
   categories: defineTable({
     slug: v.string(),
     name: v.string(),

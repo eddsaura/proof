@@ -25,17 +25,40 @@ export const DEFAULT_CATEGORIES = [
   },
 ] as const;
 
+export const DEFAULT_BATCHES = [
+  {
+    slug: "dec25-barcelona",
+    label: "Dec25 Barcelona",
+    houseName: "Kubrick",
+    cityName: "Barcelona",
+    startsOn: "2025-12-15",
+    endsOn: "2025-12-22",
+    sortOrder: 0,
+  },
+  {
+    slug: "apr26-valencia",
+    label: "Apr26 Valencia",
+    houseName: "Apr26 Valencia",
+    cityName: "Valencia",
+    sortOrder: 1,
+  },
+] as const;
+
 export function normalizeUsername(value: string) {
   return value.trim().replace(/^@+/, "").toLowerCase();
 }
 
-export function slugifyCategory(value: string) {
+export function slugify(value: string, maxLength = 48) {
   return value
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
+    .slice(0, maxLength);
+}
+
+export function slugifyCategory(value: string) {
+  return slugify(value);
 }
 
 export async function findActiveInviteByUsername(ctx: any, githubUsername: string) {
@@ -58,6 +81,24 @@ export async function ensureDefaultCategories(ctx: any) {
   for (const category of DEFAULT_CATEGORIES) {
     await ctx.db.insert("categories", {
       ...category,
+      isActive: true,
+    });
+  }
+}
+
+export async function ensureDefaultBatches(ctx: any) {
+  for (const batch of DEFAULT_BATCHES) {
+    const existing = await ctx.db
+      .query("batches")
+      .withIndex("by_slug", (q: any) => q.eq("slug", batch.slug))
+      .unique();
+
+    if (existing) {
+      continue;
+    }
+
+    await ctx.db.insert("batches", {
+      ...batch,
       isActive: true,
     });
   }

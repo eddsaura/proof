@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { api } from "@/convex/_generated/api";
 import { PrimaryButton } from "@/components/primary-button";
 import { useQuery } from "@/lib/convex";
-import { colors } from "@/lib/theme";
+import { colors, layout } from "@/lib/theme";
 
 export default function PendingScreen() {
   const viewerState = useQuery(api.users.viewerState, {});
@@ -45,6 +45,7 @@ const styles = StyleSheet.create({
   },
   panel: {
     width: "100%",
+    maxWidth: layout.formMaxWidth,
     borderRadius: 10,
     backgroundColor: colors.paper,
     borderColor: colors.border,

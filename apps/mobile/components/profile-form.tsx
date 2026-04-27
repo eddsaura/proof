@@ -11,13 +11,17 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 
+import { BatchBadges } from "@/components/batch-badges";
+import { LocationPicker, type CityLocation } from "@/components/location-picker";
 import { PrimaryButton } from "@/components/primary-button";
-import { colors } from "@/lib/theme";
+import { colors, layout } from "@/lib/theme";
 
 export function ProfileForm({
   title,
   subtitle,
   initialValues,
+  batches = [],
+  badgeTypes = [],
   submitLabel,
   onSubmit,
 }: {
@@ -27,26 +31,55 @@ export function ProfileForm({
     displayName: string;
     bio: string;
     cityName: string;
+    countryCode?: string;
+    cityLat?: number;
+    cityLng?: number;
   };
+  batches?: {
+    _id?: string;
+    label: string;
+    houseName: string;
+    cityName: string;
+    startsOn?: string;
+    endsOn?: string;
+  }[];
+  badgeTypes?: ("core")[];
   submitLabel: string;
   onSubmit: (args: {
     displayName: string;
     bio: string;
-    cityName: string;
+    location: CityLocation;
   }) => Promise<{ ok: boolean }>;
 }) {
   const [displayName, setDisplayName] = useState(initialValues.displayName);
   const [bio, setBio] = useState(initialValues.bio);
-  const [cityName, setCityName] = useState(initialValues.cityName);
+  const [location, setLocation] = useState<CityLocation | null>(
+    initialValues.cityName &&
+      initialValues.countryCode &&
+      initialValues.cityLat !== undefined &&
+      initialValues.cityLng !== undefined
+      ? {
+          cityName: initialValues.cityName,
+          countryCode: initialValues.countryCode,
+          cityLat: initialValues.cityLat,
+          cityLng: initialValues.cityLng,
+        }
+      : null,
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleSubmit() {
+    if (!location) {
+      Alert.alert("Choose a home city", "Select a confirmed city before saving.");
+      return;
+    }
+
     try {
       setIsSaving(true);
       await onSubmit({
         displayName,
         bio,
-        cityName,
+        location,
       });
       router.replace("/(protected)/(drawer)/(tabs)/home");
     } catch (error) {
@@ -68,6 +101,7 @@ export function ProfileForm({
         <View style={styles.hero}>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
+          <BatchBadges batches={batches} badgeTypes={badgeTypes} />
         </View>
 
         <View style={styles.section}>
@@ -96,12 +130,10 @@ export function ProfileForm({
 
         <View style={styles.section}>
           <Text style={styles.label}>Home city</Text>
-          <TextInput
-            onChangeText={setCityName}
-            placeholder="Barcelona, Lisbon, Buenos Aires..."
-            placeholderTextColor={colors.muted}
-            style={styles.input}
-            value={cityName}
+          <LocationPicker
+            initialLocation={location}
+            initialQuery={initialValues.cityName}
+            onChange={setLocation}
           />
         </View>
 
@@ -112,7 +144,7 @@ export function ProfileForm({
             isSaving ||
             !displayName.trim() ||
             !bio.trim() ||
-            !cityName.trim()
+            location === null
           }
         />
       </ScrollView>
@@ -126,8 +158,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   container: {
+    alignSelf: "center",
     flexGrow: 1,
-    padding: 20,
+    maxWidth: layout.formMaxWidth,
+    padding: layout.pagePadding,
+    width: "100%",
     gap: 16,
   },
   hero: {

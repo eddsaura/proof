@@ -47,10 +47,10 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   solid: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.selected,
   },
   secondary: {
-    backgroundColor: colors.accentSoft,
+    backgroundColor: colors.selectedSoft,
     borderColor: colors.border,
     borderWidth: 1,
   },
