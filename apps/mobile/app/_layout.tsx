@@ -1,4 +1,6 @@
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import { ConvexQueryClient } from "@convex-dev/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -18,6 +20,23 @@ const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 const convex = convexUrl
   ? new ConvexReactClient(convexUrl, { unsavedChangesWarning: false })
   : null;
+const convexQueryClient = convex ? new ConvexQueryClient(convex) : null;
+const queryClient = convexQueryClient
+  ? new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: 60_000,
+          queryKeyHashFn: convexQueryClient.hashFn(),
+          queryFn: convexQueryClient.queryFn(),
+        },
+      },
+    })
+  : null;
+
+if (convexQueryClient && queryClient) {
+  convexQueryClient.connect(queryClient);
+}
+
 const secureStorage = {
   getItem: SecureStore.getItemAsync,
   setItem: SecureStore.setItemAsync,
@@ -97,7 +116,7 @@ export default function RootLayout() {
     [runReplace],
   );
 
-  if (!convex) {
+  if (!convex || !queryClient) {
     return (
       <GestureHandlerRootView style={styles.root}>
         <View style={styles.appFrame}>
@@ -142,14 +161,16 @@ export default function RootLayout() {
           }
           replaceURL={replaceURL}
         >
-          <ThemeProvider value={navigationTheme}>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(public)" />
-              <Stack.Screen name="(protected)" />
-            </Stack>
-            <StatusBar style="light" />
-          </ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider value={navigationTheme}>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(public)" />
+                <Stack.Screen name="(protected)" />
+              </Stack>
+              <StatusBar style="light" />
+            </ThemeProvider>
+          </QueryClientProvider>
         </ConvexAuthProvider>
       </View>
     </GestureHandlerRootView>
