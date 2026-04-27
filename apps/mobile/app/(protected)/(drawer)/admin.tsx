@@ -15,6 +15,10 @@ import { BatchBadges } from "@/components/batch-badges";
 import { EmptyState } from "@/components/empty-state";
 import { LoadingScreen } from "@/components/loading-screen";
 import { PrimaryButton } from "@/components/primary-button";
+import {
+  formatCalendarDateInput,
+  normalizeCalendarDateRange,
+} from "@/convex/lib/dates";
 import { useMutation, useQuery } from "@/lib/convex";
 import { colors, layout } from "@/lib/theme";
 
@@ -156,6 +160,21 @@ export default function AdminScreen() {
     });
   }
 
+  function getBatchDates(startsOnValue: string, endsOnValue: string) {
+    try {
+      return normalizeCalendarDateRange({
+        startsOn: startsOnValue,
+        endsOn: endsOnValue,
+      });
+    } catch (error) {
+      Alert.alert(
+        "Check the batch dates",
+        error instanceof Error ? error.message : "Use real dates in YYYY-MM-DD format.",
+      );
+      return null;
+    }
+  }
+
   async function handleCreateInvite() {
     try {
       await createInvite({
@@ -175,13 +194,19 @@ export default function AdminScreen() {
   }
 
   async function handleCreateBatch() {
+    const dates = getBatchDates(newBatchStartsOn, newBatchEndsOn);
+
+    if (dates === null) {
+      return;
+    }
+
     try {
       await createBatch({
         label: newBatchLabel,
         houseName: newBatchHouseName,
         cityName: newBatchCityName,
-        startsOn: newBatchStartsOn.trim() || undefined,
-        endsOn: newBatchEndsOn.trim() || undefined,
+        startsOn: dates.startsOn,
+        endsOn: dates.endsOn,
         sortOrder: editableBatches.length,
       });
       setNewBatchLabel("");
@@ -213,14 +238,23 @@ export default function AdminScreen() {
   }
 
   async function handleSaveBatch(batch: any) {
+    const dates = getBatchDates(
+      formatCalendarDateInput(batch.startsOn),
+      formatCalendarDateInput(batch.endsOn),
+    );
+
+    if (dates === null) {
+      return;
+    }
+
     try {
       await updateBatch({
         batchId: batch._id,
         label: batch.label,
         houseName: batch.houseName,
         cityName: batch.cityName,
-        startsOn: batch.startsOn?.trim() || undefined,
-        endsOn: batch.endsOn?.trim() || undefined,
+        startsOn: dates.startsOn,
+        endsOn: dates.endsOn,
         sortOrder: Number(batch.sortOrder) || 0,
         isActive: Boolean(batch.isActive),
       });
@@ -468,6 +502,7 @@ export default function AdminScreen() {
         <View style={styles.dateRow}>
           <TextInput
             onChangeText={setNewBatchStartsOn}
+            autoCapitalize="none"
             placeholder="Starts YYYY-MM-DD"
             placeholderTextColor={colors.muted}
             style={[styles.input, styles.dateInput]}
@@ -475,6 +510,7 @@ export default function AdminScreen() {
           />
           <TextInput
             onChangeText={setNewBatchEndsOn}
+            autoCapitalize="none"
             placeholder="Ends YYYY-MM-DD"
             placeholderTextColor={colors.muted}
             style={[styles.input, styles.dateInput]}
@@ -545,7 +581,7 @@ export default function AdminScreen() {
                   placeholder="Starts YYYY-MM-DD"
                   placeholderTextColor={colors.muted}
                   style={[styles.input, styles.dateInput]}
-                  value={batch.startsOn ?? ""}
+                  value={formatCalendarDateInput(batch.startsOn)}
                 />
                 <TextInput
                   onChangeText={(value) =>
@@ -558,7 +594,7 @@ export default function AdminScreen() {
                   placeholder="Ends YYYY-MM-DD"
                   placeholderTextColor={colors.muted}
                   style={[styles.input, styles.dateInput]}
-                  value={batch.endsOn ?? ""}
+                  value={formatCalendarDateInput(batch.endsOn)}
                 />
               </View>
               <View style={styles.switchRow}>

@@ -113,11 +113,13 @@ export function LocationPicker({
   }, [query, searchCities, selectedLocation]);
 
   function selectLocation(location: CityLocation) {
+    const { id: _id, ...profileLocation } = location;
+
     setSelectedLocation(location);
     setQuery(locationLabel(location));
     setSuggestions([]);
     setMessage(null);
-    onChange(location);
+    onChange(profileLocation);
   }
 
   async function handleUseCurrentCity() {

@@ -11,6 +11,7 @@ import {
   slugifyCategory,
 } from "./lib/community";
 import { requireAdmin } from "./lib/auth";
+import { normalizeCalendarDateRange } from "./lib/dates";
 
 async function ensureUniqueCategorySlug(ctx: any, slug: string, categoryId?: string) {
   const existing = await ctx.db
@@ -257,6 +258,11 @@ export const createBatch = mutation({
 
     const label = args.label.trim();
     const slug = slugify(label);
+    const dates = normalizeCalendarDateRange({
+      startsOn: args.startsOn,
+      endsOn: args.endsOn,
+    });
+
     await ensureUniqueBatchSlug(ctx, slug);
 
     await ctx.db.insert("batches", {
@@ -264,8 +270,8 @@ export const createBatch = mutation({
       label,
       houseName: args.houseName.trim(),
       cityName: args.cityName.trim(),
-      startsOn: args.startsOn?.trim() || undefined,
-      endsOn: args.endsOn?.trim() || undefined,
+      startsOn: dates.startsOn,
+      endsOn: dates.endsOn,
       sortOrder: args.sortOrder,
       isActive: true,
     });
@@ -288,6 +294,11 @@ export const updateBatch = mutation({
 
     const label = args.label.trim();
     const slug = slugify(label);
+    const dates = normalizeCalendarDateRange({
+      startsOn: args.startsOn,
+      endsOn: args.endsOn,
+    });
+
     await ensureUniqueBatchSlug(ctx, slug, args.batchId);
 
     await ctx.db.patch(args.batchId, {
@@ -295,8 +306,8 @@ export const updateBatch = mutation({
       label,
       houseName: args.houseName.trim(),
       cityName: args.cityName.trim(),
-      startsOn: args.startsOn?.trim() || undefined,
-      endsOn: args.endsOn?.trim() || undefined,
+      startsOn: dates.startsOn,
+      endsOn: dates.endsOn,
       sortOrder: args.sortOrder,
       isActive: args.isActive,
     });

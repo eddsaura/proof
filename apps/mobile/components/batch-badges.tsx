@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { formatShortCalendarDate } from "@/convex/lib/dates";
 import { colors } from "@/lib/theme";
 
 type Batch = {
@@ -20,25 +21,9 @@ const badgeAccents = [
   { backgroundColor: "#1f2318", borderColor: "#8ea160" },
 ] as const;
 
-function formatShortDate(value?: string) {
-  if (!value) {
-    return null;
-  }
-
-  const [year, month, day] = value.split("-");
-
-  if (!year || !month || !day) {
-    return value;
-  }
-
-  return `${Number(day)} ${new Date(`${year}-${month}-01T00:00:00Z`).toLocaleString("en", {
-    month: "short",
-  })}`;
-}
-
 function formatDateRange(batch: Batch) {
-  const startsOn = formatShortDate(batch.startsOn);
-  const endsOn = formatShortDate(batch.endsOn);
+  const startsOn = formatShortCalendarDate(batch.startsOn);
+  const endsOn = formatShortCalendarDate(batch.endsOn);
 
   if (startsOn && endsOn) {
     return `${startsOn} - ${endsOn}`;

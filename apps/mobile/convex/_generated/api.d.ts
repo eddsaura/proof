@@ -15,6 +15,7 @@ import type * as feed from "../feed.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_community from "../lib/community.js";
+import type * as lib_dates from "../lib/dates.js";
 import type * as lib_mentions from "../lib/mentions.js";
 import type * as map from "../map.js";
 import type * as notifications from "../notifications.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/community": typeof lib_community;
+  "lib/dates": typeof lib_dates;
   "lib/mentions": typeof lib_mentions;
   map: typeof map;
   notifications: typeof notifications;
