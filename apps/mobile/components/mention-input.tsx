@@ -128,7 +128,14 @@ export function MentionInput({
 
   const suggestions =
     visibleCandidates.length > 0 ? (
-      <View style={styles.suggestions}>
+      <View
+        style={[
+          styles.suggestions,
+          suggestionsPlacement === "above"
+            ? styles.suggestionsAbove
+            : styles.suggestionsBelow,
+        ]}
+      >
         {visibleCandidates.map((user) => (
           <Pressable
             accessibilityLabel={`Mention ${user.displayName}`}
@@ -173,14 +180,28 @@ export function MentionInput({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 8,
+    position: "relative",
+    zIndex: 10,
   },
   suggestions: {
+    position: "absolute",
+    left: 0,
+    right: 0,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.paper,
+    elevation: 8,
     overflow: "hidden",
+    zIndex: 20,
+  },
+  suggestionsAbove: {
+    bottom: "100%",
+    marginBottom: 8,
+  },
+  suggestionsBelow: {
+    top: "100%",
+    marginTop: 8,
   },
   suggestion: {
     minHeight: 56,

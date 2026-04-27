@@ -15,6 +15,7 @@ import { BatchBadges } from "@/components/batch-badges";
 import { LocationPicker, type CityLocation } from "@/components/location-picker";
 import { PrimaryButton } from "@/components/primary-button";
 import { colors, layout } from "@/lib/theme";
+import { getWhatsAppUrl, normalizePhoneNumber } from "@/lib/whatsapp";
 
 export function ProfileForm({
   title,
@@ -30,6 +31,7 @@ export function ProfileForm({
   initialValues: {
     displayName: string;
     bio: string;
+    phone?: string;
     cityName: string;
     countryCode?: string;
     cityLat?: number;
@@ -48,11 +50,13 @@ export function ProfileForm({
   onSubmit: (args: {
     displayName: string;
     bio: string;
+    phone?: string;
     location: CityLocation;
   }) => Promise<{ ok: boolean }>;
 }) {
   const [displayName, setDisplayName] = useState(initialValues.displayName);
   const [bio, setBio] = useState(initialValues.bio);
+  const [phone, setPhone] = useState(initialValues.phone ?? "");
   const [location, setLocation] = useState<CityLocation | null>(
     initialValues.cityName &&
       initialValues.countryCode &&
@@ -74,11 +78,22 @@ export function ProfileForm({
       return;
     }
 
+    const normalizedPhone = normalizePhoneNumber(phone);
+
+    if (normalizedPhone && !getWhatsAppUrl(normalizedPhone)) {
+      Alert.alert(
+        "Check the WhatsApp number",
+        "Use an international number with country code, like +34 600 000 000.",
+      );
+      return;
+    }
+
     try {
       setIsSaving(true);
       await onSubmit({
         displayName,
         bio,
+        phone: normalizedPhone,
         location,
       });
       router.replace("/(protected)/(drawer)/(tabs)/home");
@@ -126,6 +141,23 @@ export function ProfileForm({
             textAlignVertical="top"
             value={bio}
           />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>WhatsApp number</Text>
+          <TextInput
+            autoComplete="tel"
+            keyboardType="phone-pad"
+            onChangeText={setPhone}
+            placeholder="+34 600 000 000"
+            placeholderTextColor={colors.muted}
+            style={styles.input}
+            textContentType="telephoneNumber"
+            value={phone}
+          />
+          <Text style={styles.hint}>
+            Include your country code so members can open a chat in one tap.
+          </Text>
         </View>
 
         <View style={styles.section}>
@@ -200,5 +232,10 @@ const styles = StyleSheet.create({
   },
   textArea: {
     minHeight: 150,
+  },
+  hint: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
   },
 });

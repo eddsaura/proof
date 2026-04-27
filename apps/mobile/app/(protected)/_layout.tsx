@@ -1,11 +1,22 @@
-import { Stack, useRouter } from "expo-router";
+import { useConvexAuth } from "convex/react";
+import { Redirect, Stack, useRouter } from "expo-router";
 import { CaretLeftIcon } from "phosphor-react-native";
 import { Pressable } from "react-native";
 
+import { LoadingScreen } from "@/components/loading-screen";
 import { colors } from "@/lib/theme";
 
 export default function ProtectedLayout() {
   const router = useRouter();
+  const { isAuthenticated, isLoading } = useConvexAuth();
+
+  if (isLoading) {
+    return <LoadingScreen message="Opening the house..." />;
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(public)/sign-in" />;
+  }
 
   function leaveNestedScreen() {
     if (router.canGoBack()) {

@@ -15,6 +15,7 @@ import { BatchBadges } from "@/components/batch-badges";
 import { MentionText } from "@/components/mention-text";
 import { ProfileUsername } from "@/components/profile-username";
 import { PrimaryButton } from "@/components/primary-button";
+import { WhatsAppButton } from "@/components/whatsapp-button";
 import { useQuery } from "@/lib/convex";
 import { colors, layout } from "@/lib/theme";
 
@@ -107,6 +108,7 @@ export default function MapTabScreen() {
                 }
                 variant="secondary"
               />
+              <WhatsAppButton phone={member.phone} label="Message on WhatsApp" />
             </View>
           ))
         ) : (

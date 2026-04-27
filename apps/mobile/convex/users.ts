@@ -74,6 +74,21 @@ function normalizeLocation(location: {
   };
 }
 
+function normalizePhone(phone: string | undefined) {
+  const trimmed = phone?.trim() ?? "";
+  const digits = trimmed.replace(/\D/g, "");
+
+  if (digits.length === 0) {
+    return undefined;
+  }
+
+  if (digits.length < 8) {
+    throw new Error("Use a WhatsApp number with country code.");
+  }
+
+  return trimmed.startsWith("+") ? `+${digits}` : digits;
+}
+
 async function resolveBatches(ctx: any, batchIds: string[] | undefined) {
   const batches = await Promise.all((batchIds ?? []).map((batchId) => ctx.db.get(batchId)));
 
@@ -282,6 +297,7 @@ export const completeProfile = action({
   args: {
     displayName: v.string(),
     bio: v.string(),
+    phone: v.optional(v.string()),
     cityName: v.optional(v.string()),
     location: v.optional(locationValidator),
   },
@@ -306,6 +322,7 @@ export const completeProfile = action({
       userId: authUserId,
       displayName: args.displayName.trim(),
       bio: args.bio.trim(),
+      phone: normalizePhone(args.phone),
       batchIds: viewer.invite.batchIds,
       role: viewer.invite.role,
       status: "active",
@@ -320,6 +337,7 @@ export const updateMyProfile = action({
   args: {
     displayName: v.string(),
     bio: v.string(),
+    phone: v.optional(v.string()),
     cityName: v.optional(v.string()),
     location: v.optional(locationValidator),
   },
@@ -344,6 +362,7 @@ export const updateMyProfile = action({
       userId: authUserId,
       displayName: args.displayName.trim(),
       bio: args.bio.trim(),
+      phone: normalizePhone(args.phone),
       batchIds: viewer.user.batchIds,
       role: viewer.user.role,
       status: "active",
@@ -359,6 +378,7 @@ export const applyProfileUpdate = internalMutation({
     userId: v.id("users"),
     displayName: v.string(),
     bio: v.string(),
+    phone: v.optional(v.string()),
     batchIds: v.optional(v.array(v.id("batches"))),
     cityName: v.string(),
     countryCode: v.string(),
@@ -371,6 +391,7 @@ export const applyProfileUpdate = internalMutation({
     await ctx.db.patch(args.userId, {
       displayName: args.displayName,
       bio: args.bio,
+      phone: args.phone,
       batchIds: args.batchIds,
       cityName: args.cityName,
       countryCode: args.countryCode,

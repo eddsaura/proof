@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/empty-state";
 import { LoadingScreen } from "@/components/loading-screen";
 import { MentionText } from "@/components/mention-text";
 import { PostRow } from "@/components/post-row";
+import { WhatsAppButton } from "@/components/whatsapp-button";
 import { useQuery } from "@/lib/convex";
 import { colors, layout } from "@/lib/theme";
 
@@ -57,6 +58,7 @@ export default function MemberProfileScreen() {
         {member.user.bio ? (
           <MentionText text={member.user.bio} style={styles.bio} />
         ) : null}
+        <WhatsAppButton phone={member.user.phone} label="Message on WhatsApp" />
       </View>
 
       <View style={styles.section}>

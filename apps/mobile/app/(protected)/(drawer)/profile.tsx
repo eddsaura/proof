@@ -31,6 +31,7 @@ export default function ProfileScreen() {
       initialValues={{
         displayName: viewerState.user.displayName,
         bio: viewerState.user.bio ?? "",
+        phone: viewerState.user.phone,
         cityName: viewerState.user.cityName ?? "",
         countryCode: viewerState.user.countryCode,
         cityLat: viewerState.user.cityLat,
