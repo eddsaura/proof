@@ -1,3 +1,4 @@
+import Google from "@auth/core/providers/google";
 import GitHub from "@auth/core/providers/github";
 import { convexAuth } from "@convex-dev/auth/server";
 
@@ -8,6 +9,21 @@ import {
   normalizeUsername,
 } from "./lib/community";
 import { isAdminRole, resolveManagedRole } from "./lib/auth";
+
+function googleProfile(profile: Record<string, unknown>) {
+  return {
+    id: String(profile.id ?? ""),
+    name: String(profile.name ?? profile.given_name ?? ""),
+    email: typeof profile.email === "string" ? profile.email : undefined,
+    image:
+      typeof profile.picture === "string"
+        ? profile.picture
+        : typeof profile.image === "string"
+          ? profile.image
+          : undefined,
+    username: normalizeUsername(String(profile.given_name ?? profile.name ?? "")),
+  };
+}
 
 function githubProfile(profile: Record<string, unknown>) {
   return {
@@ -24,11 +40,27 @@ function githubProfile(profile: Record<string, unknown>) {
   };
 }
 
+function appProfile(
+  provider: string,
+  profile: Record<string, unknown>,
+) {
+  if (provider === "github") {
+    return githubProfile(profile);
+  }
+
+  return googleProfile(profile);
+}
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     GitHub({
       profile(profile) {
         return githubProfile(profile as Record<string, unknown>);
+      },
+    }),
+    Google({
+      profile(profile) {
+        return googleProfile(profile as Record<string, unknown>);
       },
     }),
   ],
@@ -37,7 +69,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       return redirectTo;
     },
     async createOrUpdateUser(ctx, args) {
-      const profile = githubProfile(args.profile);
+      const profile = appProfile(args.provider.id, args.profile);
       const invite = await findActiveInviteByUsername(ctx, profile.username);
       const now = Date.now();
 

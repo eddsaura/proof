@@ -152,11 +152,13 @@ export default function SignInScreen() {
     };
   }, [brandTravelProgress, contentProgress, logoProgress, titleProgress]);
 
-  async function handleGitHubSignIn() {
+  async function startOAuthSignIn(provider: "github" | "google") {
+    const providerLabel = provider === "github" ? "GitHub" : "Google";
+
     try {
       setAuthError(null);
       setIsSigningIn(true);
-      const { redirect } = await signIn("github", { redirectTo });
+      const { redirect } = await signIn(provider, { redirectTo });
 
       if (Platform.OS === "web" || !redirect) {
         return;
@@ -171,16 +173,16 @@ export default function SignInScreen() {
         const code = new URL(result.url).searchParams.get("code");
 
         if (!code) {
-          throw new Error("GitHub did not return an authorization code.");
+          throw new Error(`${providerLabel} did not return an authorization code.`);
         }
 
-        await signIn("github", { code });
+        await signIn(provider, { code });
       }
     } catch (error) {
       setAuthError(
         error instanceof Error
           ? error.message
-          : "Could not sign in with GitHub.",
+          : `Could not sign in with ${providerLabel}.`,
       );
     } finally {
       setIsSigningIn(false);
@@ -243,11 +245,19 @@ export default function SignInScreen() {
               </Animated.View>
               <Animated.View style={revealStyle(contentProgress[2])}>
                 <PrimaryButton
-                  label={
-                    isSigningIn ? "Opening GitHub..." : "Sign in with GitHub"
-                  }
-                  onPress={handleGitHubSignIn}
+                  label={isSigningIn ? "Opening Google..." : "Sign in with Google"}
+                  onPress={() => startOAuthSignIn("google")}
                   disabled={isSigningIn}
+                  leadingIcon={<GoogleMark />}
+                />
+              </Animated.View>
+              <Animated.View style={revealStyle(contentProgress[2])}>
+                <PrimaryButton
+                  label={isSigningIn ? "Opening GitHub..." : "Sign in with GitHub"}
+                  onPress={() => startOAuthSignIn("github")}
+                  disabled={isSigningIn}
+                  variant="secondary"
+                  leadingIcon={<GitHubMark />}
                 />
               </Animated.View>
               {authError ? (
@@ -276,14 +286,14 @@ export default function SignInScreen() {
               >
                 <Text style={styles.noteTitle}>Bootstrap the first admin</Text>
                 <Text style={styles.noteCopy}>
-                  Fresh deployment detected. Add the GitHub username that should
+                  Fresh deployment detected. Add the Google-account username that should
                   own the community first.
                 </Text>
                 <TextInput
                   autoCapitalize="none"
                   autoCorrect={false}
                   onChangeText={setBootstrapUsername}
-                  placeholder="github username"
+                  placeholder="google-account username"
                   placeholderTextColor={colors.muted}
                   style={styles.input}
                   value={bootstrapUsername}
@@ -393,6 +403,29 @@ function AnimatedWordmark({ progress }: { progress: Animated.Value[] }) {
         </Animated.View>
       ))}
     </View>
+  );
+}
+
+
+function GoogleMark() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" accessibilityElementsHidden>
+      <Path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.44a5.5 5.5 0 0 1-2.39 3.6v2.99h3.87c2.26-2.08 3.57-5.15 3.57-8.62Z" />
+      <Path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.93-2.91l-3.87-2.99c-1.07.72-2.43 1.14-4.06 1.14-3.12 0-5.77-2.11-6.71-4.95H1.29v3.09A12 12 0 0 0 12 24Z" />
+      <Path fill="#FBBC05" d="M5.29 14.29a7.2 7.2 0 0 1 0-4.58V6.62H1.29a12 12 0 0 0 0 10.76l4-3.09Z" />
+      <Path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.58 1.82l3.43-3.43C17.94 1.08 15.24 0 12 0A12 12 0 0 0 1.29 6.62l4 3.09C6.23 6.88 8.88 4.77 12 4.77Z" />
+    </Svg>
+  );
+}
+
+function GitHubMark() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" accessibilityElementsHidden>
+      <Path
+        fill={colors.ink}
+        d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.42-4.04-1.42-.54-1.36-1.32-1.72-1.32-1.72-1.08-.73.08-.72.08-.72 1.2.08 1.83 1.22 1.83 1.22 1.06 1.8 2.79 1.28 3.47.98.11-.77.42-1.28.76-1.57-2.66-.3-5.47-1.32-5.47-5.88 0-1.3.47-2.36 1.24-3.2-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.22a11.8 11.8 0 0 1 6 0c2.29-1.54 3.3-1.22 3.3-1.22.66 1.65.24 2.87.12 3.17.77.84 1.24 1.9 1.24 3.2 0 4.57-2.81 5.58-5.49 5.88.43.37.81 1.09.81 2.2v3.26c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"
+      />
+    </Svg>
   );
 }
 

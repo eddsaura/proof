@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text } from "react-native";
+import type { ReactNode } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors } from "@/lib/theme";
 
@@ -7,11 +8,13 @@ export function PrimaryButton({
   onPress,
   disabled,
   variant = "solid",
+  leadingIcon,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   variant?: "solid" | "secondary";
+  leadingIcon?: ReactNode;
 }) {
   return (
     <Pressable
@@ -25,14 +28,17 @@ export function PrimaryButton({
         disabled ? styles.disabled : null,
       ]}
     >
-      <Text
-        style={[
-          styles.label,
-          variant === "solid" ? styles.solidLabel : styles.secondaryLabel,
-        ]}
-      >
-        {label}
-      </Text>
+      <View style={styles.content}>
+        {leadingIcon ? <View style={styles.icon}>{leadingIcon}</View> : null}
+        <Text
+          style={[
+            styles.label,
+            variant === "solid" ? styles.solidLabel : styles.secondaryLabel,
+          ]}
+        >
+          {label}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -59,6 +65,16 @@ const styles = StyleSheet.create({
   },
   secondaryLabel: {
     color: colors.ink,
+  },
+  content: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  icon: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   label: {
     fontSize: 15,

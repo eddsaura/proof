@@ -13,11 +13,13 @@ The app already points at the development deployment:
 
 - `EXPO_PUBLIC_CONVEX_URL=https://reliable-robin-175.eu-west-1.convex.cloud`
 
-Convex Auth also needs GitHub OAuth credentials configured in the Convex
+Convex Auth also needs OAuth credentials configured in the Convex
 deployment environment:
 
 - `AUTH_GITHUB_ID`
 - `AUTH_GITHUB_SECRET`
+- `AUTH_GOOGLE_ID`
+- `AUTH_GOOGLE_SECRET`
 
 Once backend code has been pushed, run the app with:
 
