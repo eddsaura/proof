@@ -1,3 +1,4 @@
+import Google from "@auth/core/providers/google";
 import GitHub from "@auth/core/providers/github";
 import { convexAuth } from "@convex-dev/auth/server";
 
@@ -8,6 +9,21 @@ import {
   normalizeUsername,
 } from "./lib/community";
 import { isAdminRole, resolveManagedRole } from "./lib/auth";
+
+function googleProfile(profile: Record<string, unknown>) {
+  return {
+    id: String(profile.id ?? ""),
+    name: String(profile.name ?? profile.given_name ?? ""),
+    email: typeof profile.email === "string" ? profile.email : undefined,
+    image:
+      typeof profile.picture === "string"
+        ? profile.picture
+        : typeof profile.image === "string"
+          ? profile.image
+          : undefined,
+    username: normalizeUsername(String(profile.given_name ?? profile.name ?? "")),
+  };
+}
 
 function githubProfile(profile: Record<string, unknown>) {
   return {
@@ -24,11 +40,49 @@ function githubProfile(profile: Record<string, unknown>) {
   };
 }
 
+function appProfile(
+  provider: string,
+  profile: Record<string, unknown>,
+) {
+  if (provider === "github") {
+    return githubProfile(profile);
+  }
+
+  return googleProfile(profile);
+}
+
+async function findExistingUserIdByEmail(
+  ctx: any,
+  email: string | undefined,
+) {
+  if (!email) {
+    return null;
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const existingUser = await ctx.db
+    .query("users")
+    .withIndex("email", (q: any) => q.eq("email", normalizedEmail))
+    .unique();
+
+  return existingUser?._id ?? null;
+}
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     GitHub({
       profile(profile) {
         return githubProfile(profile as Record<string, unknown>);
+      },
+    }),
+    Google({
+      profile(profile) {
+        return googleProfile(profile as Record<string, unknown>);
       },
     }),
   ],
@@ -37,12 +91,15 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       return redirectTo;
     },
     async createOrUpdateUser(ctx, args) {
-      const profile = githubProfile(args.profile);
+      const profile = appProfile(args.provider.id, args.profile);
       const invite = await findActiveInviteByUsername(ctx, profile.username);
       const now = Date.now();
+      const profileEmail = profile.email?.trim().toLowerCase();
+      const fallbackExistingUserId = await findExistingUserIdByEmail(ctx, profileEmail);
+      const existingUserId = args.existingUserId ?? fallbackExistingUserId;
 
-      if (args.existingUserId !== null) {
-        const existingUser = await ctx.db.get(args.existingUserId);
+      if (existingUserId !== null) {
+        const existingUser = await ctx.db.get(existingUserId);
 
         if (existingUser === null) {
           throw new Error("Expected existing user to be present.");
@@ -53,12 +110,12 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           invite?.role ?? existingUser.role ?? "member",
         );
 
-        await ctx.db.patch(args.existingUserId, {
+        await ctx.db.patch(existingUserId, {
           authUserId: existingUser.authUserId,
           username: existingUser.username,
           name: profile.name || existingUser.name,
           image: profile.image ?? existingUser.image,
-          email: profile.email ?? existingUser.email,
+          email: profileEmail ?? existingUser.email,
           displayName: existingUser.displayName || profile.name || existingUser.username,
           avatarUrl: profile.image ?? existingUser.avatarUrl,
           batchIds: invite?.batchIds ?? existingUser.batchIds,
@@ -71,17 +128,17 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 
         await ensureDefaultBatches(ctx);
 
-        return args.existingUserId;
+        return existingUserId;
       }
 
       const role = resolveManagedRole(profile.username, invite?.role ?? "member");
 
       const userId = await ctx.db.insert("users", {
-        authUserId: profile.id || profile.username,
+        authUserId: `${args.provider.id}:${profile.id || profile.username}`,
         username: profile.username,
         name: profile.name || profile.username,
         image: profile.image,
-        email: profile.email,
+        email: profileEmail,
         displayName: profile.name || profile.username,
         avatarUrl: profile.image,
         batchIds: invite?.batchIds,
