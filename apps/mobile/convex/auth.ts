@@ -51,6 +51,10 @@ function appProfile(
   return googleProfile(profile);
 }
 
+function normalizeEmail(email: string | undefined) {
+  return email?.trim().toLowerCase();
+}
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     GitHub({
@@ -70,6 +74,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     },
     async createOrUpdateUser(ctx, args) {
       const profile = appProfile(args.provider.id, args.profile);
+      const normalizedEmail = normalizeEmail(profile.email);
       const invite = await findActiveInviteByUsername(ctx, profile.username);
       const now = Date.now();
 
@@ -90,7 +95,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           username: existingUser.username,
           name: profile.name || existingUser.name,
           image: profile.image ?? existingUser.image,
-          email: profile.email ?? existingUser.email,
+          email: normalizedEmail ?? existingUser.email,
           displayName: existingUser.displayName || profile.name || existingUser.username,
           avatarUrl: profile.image ?? existingUser.avatarUrl,
           batchIds: invite?.batchIds ?? existingUser.batchIds,
@@ -106,6 +111,38 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         return args.existingUserId;
       }
 
+      if (normalizedEmail) {
+        const userWithSameEmail = await ctx.db
+          .query("users")
+          .withIndex("email" as any, (q: any) => q.eq("email", normalizedEmail))
+          .unique();
+
+        if (userWithSameEmail !== null) {
+          const role = resolveManagedRole(
+            profile.username,
+            invite?.role ?? userWithSameEmail.role ?? "member",
+          );
+
+          await ctx.db.patch(userWithSameEmail._id, {
+            name: profile.name || userWithSameEmail.name,
+            image: profile.image ?? userWithSameEmail.image,
+            email: normalizedEmail,
+            displayName: userWithSameEmail.displayName || profile.name || userWithSameEmail.username,
+            avatarUrl: profile.image ?? userWithSameEmail.avatarUrl,
+            batchIds: invite?.batchIds ?? userWithSameEmail.batchIds,
+            role,
+          });
+
+          if (isAdminRole(role)) {
+            await ensureDefaultCategories(ctx);
+          }
+
+          await ensureDefaultBatches(ctx);
+
+          return userWithSameEmail._id;
+        }
+      }
+
       const role = resolveManagedRole(profile.username, invite?.role ?? "member");
 
       const userId = await ctx.db.insert("users", {
@@ -113,7 +150,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         username: profile.username,
         name: profile.name || profile.username,
         image: profile.image,
-        email: profile.email,
+        email: normalizedEmail,
         displayName: profile.name || profile.username,
         avatarUrl: profile.image,
         batchIds: invite?.batchIds,
