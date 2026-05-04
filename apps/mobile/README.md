@@ -29,7 +29,7 @@ bun run dev
 
 ## What is included
 
-- GitHub sign-in with Convex Auth
+- GitHub + Google sign-in with Convex Auth
 - invite-only access with admin-managed allowlist
 - onboarding flow with profile + city geocoding
 - chronological threaded feed

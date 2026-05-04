@@ -286,14 +286,14 @@ export default function SignInScreen() {
               >
                 <Text style={styles.noteTitle}>Bootstrap the first admin</Text>
                 <Text style={styles.noteCopy}>
-                  Fresh deployment detected. Add the Google-account username that should
-                  own the community first.
+                  Fresh deployment detected. Add the username that should own
+                  the community first.
                 </Text>
                 <TextInput
                   autoCapitalize="none"
                   autoCorrect={false}
                   onChangeText={setBootstrapUsername}
-                  placeholder="google-account username"
+                  placeholder="username"
                   placeholderTextColor={colors.muted}
                   style={styles.input}
                   value={bootstrapUsername}
